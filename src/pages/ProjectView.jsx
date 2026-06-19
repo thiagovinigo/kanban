@@ -530,6 +530,27 @@ export function ProjectView() {
         }
         return prev.map(f => f.id === featureId ? updatedFeature : f);
       });
+
+      // Auto-extract stories to Backlog
+      try {
+        const parsed = JSON.parse(prd);
+        if (parsed && parsed.refinedStories && parsed.refinedStories.length > 0) {
+          const newCards = [];
+          for (const story of parsed.refinedStories) {
+            const storyCard = await apiClient.cards.create({
+              feature_id: featureId,
+              title: story.title,
+              description: `🤖 **História Gerada Automaticamente**\n\n${story.businessNarrative}`,
+              spec_content: JSON.stringify({ refinedStories: [story] }, null, 2)
+            });
+            newCards.push(storyCard);
+          }
+          setCards(prev => [...prev, ...newCards]);
+          alert(`Análise concluída! ${parsed.refinedStories.length} histórias foram automaticamente extraídas para o Backlog de Histórias.`);
+        }
+      } catch (e) {
+        console.error("Failed to auto-extract stories:", e);
+      }
     } catch (err) {
       alert(err.message);
     } finally {
