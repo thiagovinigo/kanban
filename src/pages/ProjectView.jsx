@@ -10,7 +10,7 @@ const FEATURE_COLUMNS = [
   { id: 'col-backlog', title: '📋 Backlog de Features' },
   { id: 'col-pm-review', title: '🔍 Análise PM (IA)' },
   { id: 'col-wip', title: '🚧 Em Execução' },
-  { id: 'col-done', title: '🚀 Lançado' }
+  { id: 'col-done', title: '🚀 Done' }
 ];
 
 const STORY_COLUMNS = [
@@ -18,7 +18,7 @@ const STORY_COLUMNS = [
   { id: 'col-spec', title: '🤖 Gerar Spec/TDD' },
   { id: 'col-sprint', title: '📦 Pacote Sprint' },
   { id: 'col-dev', title: '💻 Em Dev (Agente)' },
-  { id: 'col-done', title: '✅ Testado e Entregue' }
+  { id: 'col-done', title: '✅ Done' }
 ];
 
 const jsonToMarkdown = (title, jsonString) => {
@@ -498,9 +498,40 @@ export function ProjectView() {
     }
 
     const prevCards = [...cards];
-    setCards(cards.map(c => c.id === draggableId ? { ...c, column_id: newColId } : c));
-    try { await apiClient.cards.update(draggableId, { column_id: newColId }); } 
-    catch (err) { setCards(prevCards); alert('Erro ao mover a história'); }
+    const updatedCards = cards.map(c => c.id === draggableId ? { ...c, column_id: newColId } : c);
+    setCards(updatedCards);
+    try { 
+      await apiClient.cards.update(draggableId, { column_id: newColId }); 
+
+      // Lógica de movimentação automática da Feature
+      if (card && card.feature_id) {
+        const featureCards = updatedCards.filter(c => c.feature_id === card.feature_id);
+        const feature = features.find(f => f.id === card.feature_id);
+        
+        if (feature) {
+          let newFeatureColId = feature.column_id;
+          
+          // Se todas as histórias da feature estão 'done', a feature vai pra 'done'
+          const allDone = featureCards.length > 0 && featureCards.every(c => c.column_id === 'col-done');
+          
+          // Se alguma história está a partir de 'sprint', a feature entra em execução
+          const someInExec = featureCards.some(c => ['col-sprint', 'col-dev', 'col-done'].includes(c.column_id));
+          
+          if (allDone) {
+            newFeatureColId = 'col-done';
+          } else if (someInExec) {
+            newFeatureColId = 'col-wip';
+          }
+          
+          if (newFeatureColId !== feature.column_id) {
+            setFeatures(features.map(f => f.id === feature.id ? { ...f, column_id: newFeatureColId } : f));
+            await apiClient.features.update(feature.id, { column_id: newFeatureColId });
+          }
+        }
+      }
+
+    } 
+    catch (err) { setCards(prevCards); alert('Erro ao mover a história: ' + err.message); }
   };
 
   // AI ACTIONS
@@ -565,7 +596,17 @@ export function ProjectView() {
       setCards(prev => {
         const card = prev.find(c => c.id === cardId);
         if (!card) return prev;
-        const updatedCard = { ...card, spec_content: spec };
+        
+        let newSpecContent = spec;
+        // Se já tivermos o JSON bonitinho, vamos anexar o Markdown ao invés de sobrescrever
+        if (card.spec_content && card.spec_content.trim().startsWith('{')) {
+          // Extrair apenas o JSON se já tiver Markdown anexado
+          const match = card.spec_content.match(/^(\{[\s\S]*?\})/);
+          const jsonPart = match ? match[1] : card.spec_content;
+          newSpecContent = jsonPart + "\n\n### Especificação Técnica e TDD\n\n" + spec;
+        }
+
+        const updatedCard = { ...card, spec_content: newSpecContent };
         if (selectedItem?.data?.id === cardId) {
           setSelectedItem({ type: 'card', data: updatedCard });
         }
@@ -900,7 +941,7 @@ export function ProjectView() {
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {item.tags?.includes('Arquitetura') && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}><Server size={12}/> Arquitetura</span>}
                     {item.prd_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-purple)' }}><FileText size={12}/> PRD Gerado</span>}
-                    {item.computedStoryCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>{item.computedStoryCount} {item.computedStoryCount === 1 ? 'história' : 'histórias'}</span>}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: item.computedStoryCount > 0 ? 'var(--accent-blue)' : 'var(--text-muted)', background: item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-glass)'}` }}>{item.computedStoryCount} {item.computedStoryCount === 1 ? 'história' : 'histórias'}</span>
                   </div>
                 </div>
               );
@@ -961,11 +1002,16 @@ export function ProjectView() {
                 const parentFeature = features.find(f => f.id === item.feature_id);
                 return (
                   <div>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--accent-purple)', textTransform: 'uppercase', marginBottom: '4px', display: 'block', fontWeight: '600' }}>
                       {parentFeature ? parentFeature.title : 'Sem Feature'}
                     </span>
                     <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{item.tag ? <span style={{color: 'var(--accent-blue)', marginRight: '4px'}}>{item.tag}</span> : null}{item.title}</h4>
-                    {item.spec_content && <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-blue)' }}><FileText size={12}/> Spec/TDD Gerado</div>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                      {item.tags && item.tags.filter(t => t.startsWith('Sprint ')).map(t => (
+                        <span key={t} style={{ fontSize: '0.65rem', background: 'rgba(255, 165, 0, 0.2)', color: 'var(--accent-orange)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255, 165, 0, 0.3)' }}>{t}</span>
+                      ))}
+                      {item.spec_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}><FileText size={10}/> Spec/TDD Gerado</span>}
+                    </div>
                   </div>
                 )
               }} 
@@ -996,7 +1042,18 @@ export function ProjectView() {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
             
             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0 }}>{selectedItem.data.title}</h2>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {selectedItem.data.tag && <span style={{color: 'var(--accent-blue)'}}>{selectedItem.data.tag}</span>}
+                {selectedItem.data.title}
+                {selectedItem.type === 'feature' && selectedItem.data.computedStoryCount !== undefined && (
+                  <span style={{ fontSize: '0.7rem', color: selectedItem.data.computedStoryCount > 0 ? 'var(--accent-blue)' : 'var(--text-muted)', background: selectedItem.data.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)', padding: '4px 8px', borderRadius: '4px', border: `1px solid ${selectedItem.data.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-glass)'}`, fontWeight: 'normal', verticalAlign: 'middle' }}>
+                    {selectedItem.data.computedStoryCount} {selectedItem.data.computedStoryCount === 1 ? 'história' : 'histórias'}
+                  </span>
+                )}
+                {selectedItem.data.tags && selectedItem.data.tags.filter(t => t.startsWith('Sprint ')).map(t => (
+                  <span key={t} style={{ fontSize: '0.8rem', background: 'rgba(255, 165, 0, 0.2)', color: 'var(--accent-orange)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255, 165, 0, 0.3)', fontWeight: 'normal' }}>{t}</span>
+                ))}
+              </h2>
               <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
             </div>
 

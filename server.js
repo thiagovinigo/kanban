@@ -501,10 +501,20 @@ Retorne APENAS o Markdown.`;
     const specContent = completion.choices[0].message.content;
     
     const index = db.cards.findIndex(c => c.id === card_id);
-    db.cards[index].spec_content = specContent;
+    let newSpecContent = specContent;
+    
+    // Se já houver um spec_content em JSON, anexar o Markdown ao invés de sobrescrever
+    const existingSpec = db.cards[index].spec_content;
+    if (existingSpec && existingSpec.trim().startsWith('{')) {
+      const match = existingSpec.match(/^(\{[\s\S]*?\})/);
+      const jsonPart = match ? match[1] : existingSpec;
+      newSpecContent = jsonPart + "\n\n### Especificação Técnica e TDD\n\n" + specContent;
+    }
+    
+    db.cards[index].spec_content = newSpecContent;
     await writeDB(db);
 
-    res.json({ spec_content: specContent });
+    res.json({ spec_content: newSpecContent });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Falha ao gerar a Spec/TDD.' });

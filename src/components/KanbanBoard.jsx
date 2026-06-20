@@ -36,7 +36,7 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
                   }}
                 >
                   {getItemsForColumn(column.id).map((item, index) => (
-                    <Draggable key={item.id} draggableId={item.id} index={index}>
+                    <Draggable key={String(item.id)} draggableId={String(item.id)} index={index}>
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
