@@ -362,12 +362,15 @@ app.post('/api/ai/prd', authenticateToken, async (req, res) => {
   const selectedSkills = (config.skills || []).map(id => db.skills?.find(a => a.id === id)).filter(Boolean).map(a => `- ${a.title}: ${a.description}`).join('\n');
 
   try {
+    const existingCards = db.cards.filter(c => c.feature_id === feature_id);
+    const existingCardsStr = existingCards.length > 0 ? `\n\nHistórias Existentes para esta Feature:\n${existingCards.map(c => `ID: ${c.id} | Título: ${c.title} | Contexto: ${c.description}`).join(`\n`)}\nIMPORTANTE: As histórias acima provavelmente são rascunhos ou placeholders muito amplos. Você DEVE obrigatoriamente quebrar a Feature em múltiplas histórias menores. Você PODE usar o "card_id" de uma história existente no seu array "refinedStories" para atualizá-la (cobrindo uma parte do fluxo), mas você DEVE gerar novas histórias ADICIONAIS (com card_id: null) para cobrir o restante do escopo que foi extraído na sua Análise de Divisão.` : "";
+
     const prompt = `**Role:** Especialista em Gestão de Produtos Avançada, Análise de Requisitos, Escrita de User Stories, Planejamento Técnico e Organização de Backlog.
-**Task:** Analisar a Feature e dividi-la em User Stories menores e mais gerenciáveis. Para cada User Story, gere uma estrutura completa: visão do usuário, narrativa de negócio, Critérios de Aceite (BDD), resumo, cenários de teste em três níveis, estimativa, detalhamento das tasks de desenvolvimento, análise de riscos e considerações.
+**Task:** Analisar a Feature e dividi-la em User Stories menores e mais gerenciáveis. Você DEVE extrair DE FORMA EXAUSTIVA E COMPLETA TODAS as User Stories necessárias para cobrir a Feature de ponta a ponta. Não pule nenhum fluxo de sucesso, fluxo de erro, tratamento de exceção ou configuração necessária para que a feature funcione perfeitamente. Para cada User Story, gere uma estrutura completa: visão do usuário, narrativa de negócio, Critérios de Aceite (BDD), resumo, cenários de teste em três níveis, estimativa, detalhamento das tasks de desenvolvimento, análise de riscos e considerações.
 
 Feature: "${feature.title}"
 Contexto do Projeto: ${project.name}
-${project.project_context ? `\nInformações Globais e Restrições do Projeto:\n${project.project_context}\n` : ''}
+${project.project_context ? `\nInformações Globais e Restrições do Projeto:\n${project.project_context}\n` : ''}${existingCardsStr}
 
 Agentes Especialistas Ativados:
 ${selectedAgents || 'Nenhum'}
@@ -376,18 +379,20 @@ Skills Técnicas Ativadas:
 ${selectedSkills || 'Nenhuma'}
 
 **REGRAS:**
-1. **Avaliação e Divisão:** Preencha 'divisionAnalysis' justificando a quebra da feature.
+1. **Avaliação e Divisão:** Preencha 'divisionAnalysis' justificando a quebra exaustiva da feature.
 2. **Formatação BDD:** Critérios de Aceite estritamente em Gherkin.
-3. **Cenários de Teste:** Níveis E2E (Cypress), Integração e Unitário.
-4. **Análise de Riscos:** 'type' (Técnico, Negócio, Usabilidade, Compliance, Rollout), 'severity' (baixa, média, alta) e mitigação.
-5. **Estimativas:** TODAS as estimativas (de histórias e de tasks) devem ser dadas obrigatoriamente em HORAS (ex: "4h", "8h", "16h") e NÃO em story points.
-6. **Formato:** Responda SEMPRE em português e estritamente no JSON SCHEMA abaixo.
+3. **IDIOMA OBRIGATÓRIO:** Toda a sua resposta, explicações e textos gerados DEVEM estar estritamente em PORTUGUÊS DO BRASIL (PT-BR).
+4. **Cenários de Teste:** Níveis E2E (Cypress), Integração e Unitário.
+5. **Análise de Riscos:** 'type' (Técnico, Negócio, Usabilidade, Compliance, Rollout), 'severity' (baixa, média, alta) e mitigação.
+6. **Estimativas:** TODAS as estimativas (de histórias e de tasks) devem ser dadas obrigatoriamente em HORAS (ex: "4h", "8h", "16h") e NÃO em story points.
+7. **Formato:** Responda SEMPRE em português e estritamente no JSON SCHEMA abaixo.
 
 **JSON SCHEMA OBRIGATÓRIO:**
 {
   "divisionAnalysis": "string",
   "refinedStories": [
     {
+      "card_id": "string (ID existente ou nulo se for nova)",
       "title": "string",
       "epicSuggestion": "string",
       "featureSuggestion": "string",
@@ -1046,28 +1051,61 @@ app.post('/api/ai/import-document', authenticateToken, async (req, res) => {
     const project = db.projects.find(p => p.id === project_id);
     const projectContextStr = project?.project_context ? `\n\nConsidere também o Contexto Global do Projeto ao extrair:\n${project.project_context}` : '';
 
-    const prompt = `Você é um Analista de Negócios Sênior especialista em extração de requisitos.
-Leia o documento abaixo e liste TODAS as funcionalidades, requisitos ou histórias de usuário que podem ser extraídas.
-Mesmo que o documento não use o formato "Como [persona]...", infira as histórias a partir dos requisitos descritos.${projectContextStr}
+    const contextPrompt = `Leia o documento abaixo e extraia o Contexto Global do Projeto de forma EXAUSTIVA e DETALHADA. NÃO FAÇA UM RESUMO EXECUTIVO. Preserve todas as nuances, premissas, regras gerais de negócio, restrições e visão do produto presentes no documento, garantindo o contexto máximo.
+    Retorne APENAS JSON válido com a estrutura exata: { "project_context_summary": "string" }
+    
+Documento:
+${content.substring(0, 25000)}`;
 
-Retorne APENAS JSON válido com esta estrutura exata:
-{
-  "stories": [
-    { "title": "string", "epic": "string", "feature": "string", "description": "string", "persona": "string" }
-  ]
-}
+    const prompt = `Você é um Analista de Negócios Sênior especialista em extração de requisitos ágeis.
+Leia o documento abaixo e liste de forma EXAUSTIVA e GRANULAR TODAS as funcionalidades, requisitos e histórias de usuário que podem ser extraídas do escopo.
+Instruções rigorosas:
+1. NÃO RESUMA! Quebre o escopo no maior número de Histórias de Usuário possível, aplicando o princípio INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable).
+2. Se o documento mencionar "Autenticação", você deve criar histórias separadas para Login, Registro, Recuperação de Senha, Validação de E-mail, etc.
+3. Extraia tudo o que estiver implícito (regras de erro, empty states, fluxos de falha).
+4. Agrupe as histórias logicamente em Épicos e Features correspondentes.
+${projectContextStr}
+
+    Retorne APENAS JSON válido com esta estrutura exata:
+    {
+      "stories": [
+      { "title": "string", "epic": "string", "feature": "string", "description": "string", "persona": "string" }
+    ]
+  }
 
 Documento:
 ${content.substring(0, 25000)}`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.2
-    });
+    const [contextCompletion, storiesCompletion] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: contextPrompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      }),
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      })
+    ]);
 
-    const parsed = JSON.parse(completion.choices[0].message.content);
+    const contextParsed = JSON.parse(contextCompletion.choices[0].message.content);
+    const parsed = JSON.parse(storiesCompletion.choices[0].message.content);
+    parsed.project_context_summary = contextParsed.project_context_summary;
+
+    if (parsed.project_context_summary) {
+      const pIdx = db.projects.findIndex(p => p.id === project_id);
+      if (pIdx !== -1) {
+        if (!db.projects[pIdx].project_context) {
+          db.projects[pIdx].project_context = parsed.project_context_summary;
+        } else {
+          db.projects[pIdx].project_context += '\n\n### Adicionado via Importador:\n' + parsed.project_context_summary;
+        }
+      }
+    }
+
     const stories = parsed.stories || [];
 
     // db already loaded above

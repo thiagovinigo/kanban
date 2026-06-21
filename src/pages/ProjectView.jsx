@@ -566,18 +566,28 @@ export function ProjectView() {
       try {
         const parsed = JSON.parse(prd);
         if (parsed && parsed.refinedStories && parsed.refinedStories.length > 0) {
-          const newCards = [];
+          let updatedCount = 0;
+          let newCount = 0;
           for (const story of parsed.refinedStories) {
-            const storyCard = await apiClient.cards.create({
-              feature_id: featureId,
-              title: story.title,
-              description: `🤖 **História Gerada Automaticamente**\n\n${story.businessNarrative}`,
-              spec_content: JSON.stringify({ refinedStories: [story] }, null, 2)
-            });
-            newCards.push(storyCard);
+            const existingCard = cards.find(c => c.id === story.card_id || (c.feature_id === featureId && c.title.trim().toLowerCase() === story.title.trim().toLowerCase()));
+            if (existingCard) {
+              await apiClient.cards.update(existingCard.id, {
+                description: `✨ **História Refinada Automaticamente**\n\n${story.businessNarrative}`,
+                spec_content: JSON.stringify({ refinedStories: [story] }, null, 2)
+              });
+              updatedCount++;
+            } else {
+              await apiClient.cards.create({
+                feature_id: featureId,
+                title: story.title,
+                description: `🤖 **História Gerada Automaticamente**\n\n${story.businessNarrative}`,
+                spec_content: JSON.stringify({ refinedStories: [story] }, null, 2)
+              });
+              newCount++;
+            }
           }
-          setCards(prev => [...prev, ...newCards]);
-          alert(`Análise concluída! ${parsed.refinedStories.length} histórias foram automaticamente extraídas para o Backlog de Histórias.`);
+          loadData();
+          alert(`Análise concluída! ${newCount} histórias novas e ${updatedCount} histórias refinadas.`);
         }
       } catch (e) {
         console.error("Failed to auto-extract stories:", e);

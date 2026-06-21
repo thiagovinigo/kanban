@@ -15,7 +15,12 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
           <div key={column.id} style={{ minWidth: '300px', flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-glass)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
             
             <div style={{ padding: '16px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>{column.title}</h3>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {column.title}
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+                  {getItemsForColumn(column.id).length}
+                </span>
+              </h3>
               {renderColumnHeader && renderColumnHeader(column)}
             </div>
 
