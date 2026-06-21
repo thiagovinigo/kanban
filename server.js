@@ -1057,19 +1057,25 @@ app.post('/api/ai/import-document', authenticateToken, async (req, res) => {
 Documento:
 ${content.substring(0, 25000)}`;
 
-    const prompt = `Você é um Analista de Negócios Sênior especialista em extração de requisitos ágeis.
+    const prompt = `Você é um Product Owner / Analista de Negócios Sênior especialista em extração de requisitos ágeis.
 Leia o documento abaixo e liste de forma EXAUSTIVA e GRANULAR TODAS as funcionalidades, requisitos e histórias de usuário que podem ser extraídas do escopo.
 Instruções rigorosas:
-1. NÃO RESUMA! Quebre o escopo no maior número de Histórias de Usuário possível, aplicando o princípio INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable).
-2. Se o documento mencionar "Autenticação", você deve criar histórias separadas para Login, Registro, Recuperação de Senha, Validação de E-mail, etc.
-3. Extraia tudo o que estiver implícito (regras de erro, empty states, fluxos de falha).
-4. Agrupe as histórias logicamente em Épicos e Features correspondentes.
+1. IDENTIFIQUE O MAIOR NÚMERO DE FEATURES POSSÍVEL E, DEPOIS, O MAIOR NÚMERO DE HISTÓRIAS SEM NENHUMA RESTRIÇÃO OU LIMITE DE QUANTIDADE! Não resuma absolutamente nada. Quebre fluxos complexos em múltiplas histórias.
+2. Extraia tudo o que estiver implícito (regras de erro, empty states, fluxos de falha, cenários de exceção).
+3. Agrupe as histórias logicamente em Épicos e Features correspondentes.
+4. Para cada história identificada, analise e liste explicitamente quais são as Dependências (técnicas ou de outras histórias) e os Riscos associados (de negócio, técnicos, segurança, etc).
 ${projectContextStr}
 
     Retorne APENAS JSON válido com esta estrutura exata:
     {
       "stories": [
-      { "title": "string", "epic": "string", "feature": "string", "description": "string", "persona": "string" }
+      { 
+        "title": "string", 
+        "epic": "string", 
+        "feature": "string", 
+        "description": "string (Descreva a história e inclua uma seção para 'Dependências:' e uma seção para 'Riscos:')", 
+        "persona": "string" 
+      }
     ]
   }
 

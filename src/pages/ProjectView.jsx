@@ -665,48 +665,15 @@ export function ProjectView() {
       {/* CONTENT */}
       {activeTab === 'context' && (
         <div className="glass-panel" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <div>
-              <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Contexto Global do Projeto</h3>
-              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
-                Descreva aqui as premissas, restrições e objetivos. Esta base será consultada pela IA em <strong>todas as etapas</strong>.
-              </p>
-            </div>
-            <button 
-              type="button" 
-              className="btn" 
-              onClick={() => setIsEditingContext(!isEditingContext)}
-              style={{ background: isEditingContext ? 'var(--bg-secondary)' : 'var(--accent-purple)', color: 'white', display: 'flex', gap: '8px', alignItems: 'center' }}
-            >
-              {isEditingContext ? <><Eye size={16} /> Visualizar Formatado</> : <><FileText size={16} /> Editar Puro Texto</>}
-            </button>
-          </div>
-          
-          {isEditingContext ? (
-            <form onSubmit={(e) => { handleSaveSettings(e); setIsEditingContext(false); }}>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <label style={{ color: 'var(--text-secondary)' }}>Edição de Texto Bruto (Markdown suportado)</label>
-                  <label className="btn" style={{ background: 'var(--accent-blue)', color: 'white', cursor: 'pointer', padding: '4px 12px', fontSize: '0.8rem', borderRadius: '4px' }}>
-                    {isUploadingContext ? <Loader2 className="animate-spin" size={14} /> : '📄 Importar Arquivo'}
-                    <input type="file" style={{ display: 'none' }} onChange={handleContextUpload} disabled={isUploadingContext} />
-                  </label>
-                </div>
-                <textarea 
-                  className="input-field" 
-                  rows="15" 
-                  placeholder="Cole o contexto do projeto, links, descrições, glossário..." 
-                  value={formData.project_context} 
-                  onChange={e => setFormData({...formData, project_context: e.target.value})}
-                  style={{ fontFamily: 'monospace' }}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Contexto Global do Projeto</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
+                  Descreva aqui as premissas, restrições e objetivos. Esta base será consultada pela IA em <strong>todas as etapas</strong>. (Apenas leitura - contexto gerado automaticamente pela Importação de Documentos)
+                </p>
               </div>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                Salvar Contexto
-              </button>
-            </form>
-          ) : (
+            </div>
+            
             <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-glass)', minHeight: '300px' }}>
               {formData.project_context ? (
                 <div className="markdown-body" style={{ color: 'var(--text-primary)' }}>
@@ -714,12 +681,10 @@ export function ProjectView() {
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '40px' }}>
-                  <p>Nenhum contexto definido ainda.</p>
-                  <button type="button" className="btn" onClick={() => setIsEditingContext(true)} style={{ background: 'var(--bg-glass)', marginTop: '8px' }}>Adicionar Contexto</button>
+                  <p>Nenhum contexto definido ainda. Importe um documento de escopo no Backlog de Features para a IA gerar o contexto.</p>
                 </div>
               )}
             </div>
-          )}
         </div>
       )}
 
