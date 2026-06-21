@@ -1133,7 +1133,7 @@ ${content.substring(0, 25000)}`;
         project_id,
         title: featureName,
         description: `Importado do documento (Épico sugerido: ${grouped[featureName][0].epic})`,
-        column_id: 'col-ideas',
+        column_id: 'col-backlog',
         prd_content: null,
         created_at: new Date().toISOString()
       });

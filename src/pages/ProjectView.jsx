@@ -249,16 +249,9 @@ export function ProjectView() {
     reader.onload = async (ev) => {
       const text = ev.target.result;
       try {
-        const extracted = await apiClient.ai.extractFeatures(text);
-        if (extracted && extracted.length > 0) {
-          const newFeatures = [];
-          for (const feat of extracted) {
-            const f = await apiClient.features.create({ project_id: projectId, title: feat.title, description: feat.description });
-            newFeatures.push(f);
-          }
-          setFeatures([...features, ...newFeatures]);
-          alert(`${extracted.length} features extraídas com sucesso!`);
-        }
+        const res = await apiClient.ai.importDocument(projectId, text);
+        alert(`Importação concluída! ${res.featuresCount} Épicos/Features e ${res.cardsCount} Histórias extraídas.`);
+        loadData(); // Reload to fetch newly created features and cards
       } catch (err) {
         alert('Erro ao extrair documento: ' + err.message);
       } finally {
@@ -1199,18 +1192,40 @@ export function ProjectView() {
               <button onClick={() => setShowImportModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
             </div>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Cole o texto do seu documento de requisitos. A IA vai analisar o texto e extrair automaticamente Épicos, Features e Histórias de Usuário para o backlog.
+              Cole o texto do seu documento de requisitos ou faça o upload de um arquivo (PDF, DOCX, TXT). A IA vai analisar o texto e extrair automaticamente Épicos, Features e Histórias de Usuário para o backlog.
             </p>
+            
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+              <label className="btn" style={{ background: 'var(--accent-blue)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isUploadingContext ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
+                {isUploadingContext ? 'Processando arquivo...' : 'Selecionar Arquivo (PDF/DOCX)'}
+                <input type="file" style={{ display: 'none' }} disabled={isUploadingContext} onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  setIsUploadingContext(true);
+                  try {
+                    const text = await apiClient.ai.uploadContext(file);
+                    setImportContent(prev => prev ? prev + '\n\n' + text : text);
+                  } catch (err) {
+                    alert('Erro ao extrair documento: ' + err.message);
+                  } finally {
+                    setIsUploadingContext(false);
+                    e.target.value = null;
+                  }
+                }} />
+              </label>
+            </div>
+
             <textarea
               className="input-field"
               value={importContent}
               onChange={e => setImportContent(e.target.value)}
-              placeholder="Cole o texto bruto aqui..."
+              placeholder="Cole o texto bruto aqui ou selecione um arquivo acima..."
               style={{ minHeight: '300px', marginBottom: '16px', fontFamily: 'monospace' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button className="btn" onClick={() => setShowImportModal(false)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleImportDocument} disabled={isImporting || !importContent.trim()}>
+              <button className="btn btn-primary" onClick={handleImportDocument} disabled={isImporting || !importContent.trim() || isUploadingContext}>
                 {isImporting ? <><Loader2 className="animate-spin" size={16} style={{marginRight: '8px'}} /> Extraindo...</> : 'Importar com IA'}
               </button>
             </div>
