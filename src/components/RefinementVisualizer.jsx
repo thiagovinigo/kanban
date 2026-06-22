@@ -8,18 +8,18 @@ export function RefinementVisualizer({ prdContent, onCreateStories, isCreatingSt
   try {
     data = JSON.parse(prdContent);
   } catch (err) {
-    // Fallback: If it's a mix of legacy JSON and appended Markdown from QA agent
-    const match = prdContent.match(/^(\{[\s\S]*?\})\s*(###[\s\S]*)$/);
-    if (match) {
+    // Fallback: If it's a mix of legacy JSON and appended Markdown from QA agent or Spec
+    const sepIndex = prdContent.indexOf('### Especificação Técnica e TDD');
+    if (sepIndex !== -1) {
       try {
-        data = JSON.parse(match[1]);
+        data = JSON.parse(prdContent.substring(0, sepIndex).trim());
         if (data && !data.refinedStories && data.title) {
           data = { refinedStories: [data] };
         }
         if (data && data.refinedStories && data.refinedStories.length > 0) {
-          data.refinedStories[0].qaTestScenarios = match[2];
+          data.refinedStories[0].qaTestScenarios = '### Especificação Técnica e TDD\n\n' + prdContent.substring(sepIndex + '### Especificação Técnica e TDD'.length).trim();
         }
-      } catch(e) {
+      } catch (e) {
         data = null;
       }
     }

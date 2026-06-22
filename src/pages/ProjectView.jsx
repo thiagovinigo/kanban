@@ -603,9 +603,12 @@ export function ProjectView() {
         let newSpecContent = spec;
         // Se já tivermos o JSON bonitinho, vamos anexar o Markdown ao invés de sobrescrever
         if (card.spec_content && card.spec_content.trim().startsWith('{')) {
-          // Extrair apenas o JSON se já tiver Markdown anexado
-          const match = card.spec_content.match(/^(\{[\s\S]*?\})/);
-          const jsonPart = match ? match[1] : card.spec_content;
+          // Procurar o separador exato para não quebrar o JSON com regex não-gulosa
+          const sepIndex = card.spec_content.indexOf('### Especificação Técnica e TDD');
+          let jsonPart = card.spec_content;
+          if (sepIndex !== -1) {
+            jsonPart = card.spec_content.substring(0, sepIndex).trim();
+          }
           newSpecContent = jsonPart + "\n\n### Especificação Técnica e TDD\n\n" + spec;
         }
 
