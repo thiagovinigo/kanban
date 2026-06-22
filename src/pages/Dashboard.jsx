@@ -50,7 +50,10 @@ export function Dashboard() {
     <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '2rem' }}>Meus Projetos</h1>
+          <h1 style={{ margin: 0, fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            Meus Projetos 
+            <span style={{ fontSize: '0.8rem', background: 'var(--accent-blue)', color: 'white', padding: '4px 8px', borderRadius: '12px', fontWeight: 'bold' }}>v1.1 (Stable)</span>
+          </h1>
           <p style={{ color: 'var(--text-secondary)' }}>Bem vindo, {user.email}</p>
         </div>
         <button onClick={logout} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-glass)', color: 'white' }}>
