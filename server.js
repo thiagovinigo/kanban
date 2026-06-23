@@ -19,7 +19,17 @@ dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabase = null;
+
+try {
+  if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } else {
+    console.warn("⚠️ SUPABASE_URL or SUPABASE_KEY is missing. API will fail.");
+  }
+} catch (e) {
+  console.error("Failed to initialize Supabase client:", e);
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-local-key';
 const app = express();
@@ -68,6 +78,7 @@ async function initDB() {
 initDB();
 
 async function readDB() {
+  if (!supabase) throw new Error("Supabase is not initialized. Check Environment Variables.");
   try {
     const [users, projects, features, cards] = await Promise.all([
       supabase.from('users').select('*'),
@@ -92,6 +103,7 @@ async function readDB() {
 }
 
 async function writeDB(db) {
+  if (!supabase) throw new Error("Supabase is not initialized. Check Environment Variables.");
   try {
     if (db.users && db.users.length > 0) await supabase.from('users').upsert(db.users);
     if (db.projects && db.projects.length > 0) await supabase.from('projects').upsert(db.projects);
@@ -1370,6 +1382,11 @@ PRD Principal Atual: ${project.main_prd_content || ''}
     console.error(err);
     res.status(500).json({ error: 'Falha ao gerar doc de segurança.' });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error("Global API Error:", err);
+  res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
