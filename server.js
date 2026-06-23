@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import multer from 'multer';
 import mammoth from 'mammoth';
 import { createRequire } from 'module';
+import { createClient } from '@supabase/supabase-js';
 
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
@@ -14,6 +15,11 @@ const pdfParse = require('pdf-parse');
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 dotenv.config({ path: '.env.local' });
+dotenv.config();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-local-key';
 const app = express();
@@ -57,36 +63,43 @@ const GLOBAL_HUB_DATA = {
 };
 
 async function initDB() {
-  try {
-    await fs.access(DB_FILE);
-  } catch (error) {
-    await fs.writeFile(DB_FILE, JSON.stringify(GLOBAL_HUB_DATA, null, 2));
-    console.log("📦 JSON Database initialized with Global Hub Data.");
-  }
+  console.log("🚀 Server started. Connected to Supabase.");
 }
 initDB();
 
 async function readDB() {
   try {
-    const data = await fs.readFile(DB_FILE, 'utf-8');
-    let db = JSON.parse(data);
-    
-    let modified = false;
-    if (!db.agents) { db.agents = GLOBAL_HUB_DATA.agents; modified = true; }
-    if (!db.skills) { db.skills = GLOBAL_HUB_DATA.skills; modified = true; }
-    if (!db.mcps) { db.mcps = GLOBAL_HUB_DATA.mcps; modified = true; }
-    if (!db.users) { db.users = []; modified = true; }
-    if (modified) await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2));
-    
-    return db;
+    const [users, projects, features, cards] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('projects').select('*'),
+      supabase.from('features').select('*'),
+      supabase.from('cards').select('*')
+    ]);
+
+    return {
+      users: users.data || [],
+      projects: projects.data || [],
+      features: features.data || [],
+      cards: cards.data || [],
+      agents: GLOBAL_HUB_DATA.agents,
+      skills: GLOBAL_HUB_DATA.skills,
+      mcps: GLOBAL_HUB_DATA.mcps
+    };
   } catch (err) {
-    await fs.writeFile(DB_FILE, JSON.stringify(GLOBAL_HUB_DATA, null, 2));
+    console.error("Error reading from Supabase:", err);
     return GLOBAL_HUB_DATA;
   }
 }
 
-async function writeDB(data) {
-  await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
+async function writeDB(db) {
+  try {
+    if (db.users && db.users.length > 0) await supabase.from('users').upsert(db.users);
+    if (db.projects && db.projects.length > 0) await supabase.from('projects').upsert(db.projects);
+    if (db.features && db.features.length > 0) await supabase.from('features').upsert(db.features);
+    if (db.cards && db.cards.length > 0) await supabase.from('cards').upsert(db.cards);
+  } catch (err) {
+    console.error("Error writing to Supabase:", err);
+  }
 }
 
 // Middleware de Autenticação
@@ -1359,6 +1372,10 @@ PRD Principal Atual: ${project.main_prd_content || ''}
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+export default app;
