@@ -154,6 +154,20 @@ export const apiClient = {
       });
       return data.spec_content;
     },
+    async generateFeatureDDD(featureId) {
+      const data = await apiClient.request('/ai/feature-ddd', {
+        method: 'POST',
+        body: JSON.stringify({ feature_id: featureId })
+      });
+      return data.ddd_content;
+    },
+    async generateCardDDD(cardId) {
+      const data = await apiClient.request('/ai/card-ddd', {
+        method: 'POST',
+        body: JSON.stringify({ card_id: cardId })
+      });
+      return data.ddd_spec_content;
+    },
     async extractFeatures(text) {
       const data = await apiClient.request('/ai/extract-features', {
         method: 'POST',

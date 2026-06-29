@@ -565,6 +565,48 @@ export function ProjectView() {
     }
   };
 
+  const generateFeatureDDD = async (featureId) => {
+    setGeneratingItem(`ddd-${featureId}`);
+    try {
+      const ddd = await apiClient.ai.generateFeatureDDD(featureId);
+      
+      setFeatures(prev => {
+        const feat = prev.find(f => f.id === featureId);
+        if (!feat) return prev;
+        const updatedFeature = { ...feat, ddd_content: ddd };
+        if (selectedItem?.data?.id === featureId) {
+          setSelectedItem({ type: 'feature', data: updatedFeature });
+        }
+        return prev.map(f => f.id === featureId ? updatedFeature : f);
+      });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGeneratingItem(null);
+    }
+  };
+
+  const generateCardDDD = async (cardId) => {
+    setGeneratingItem(`ddd-card-${cardId}`);
+    try {
+      const dddSpec = await apiClient.ai.generateCardDDD(cardId);
+      
+      setCards(prev => {
+        const c = prev.find(card => card.id === cardId);
+        if (!c) return prev;
+        const updatedCard = { ...c, ddd_spec_content: dddSpec };
+        if (selectedItem?.data?.id === cardId) {
+          setSelectedItem({ type: 'card', data: updatedCard });
+        }
+        return prev.map(card => card.id === cardId ? updatedCard : card);
+      });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGeneratingItem(null);
+    }
+  };
+
   const generatePrd = async (featureId) => {
     setGeneratingItem(featureId);
     try {
@@ -1210,10 +1252,27 @@ export function ProjectView() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h3 style={{ margin: 0, color: 'var(--accent-purple)' }}>Documento de Requisitos (PRD)</h3>
-                    <button onClick={() => generatePrd(selectedItem.data.id)} disabled={generatingItem === selectedItem.data.id} className="btn btn-primary" style={{ background: 'var(--accent-purple)', padding: '8px 16px' }}>
-                      {generatingItem === selectedItem.data.id ? <Loader2 className="animate-spin" /> : <><Sparkles size={16} /> {selectedItem.data.prd_content ? 'Regerar PRD' : 'Gerar PRD com IA'}</>}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {selectedItem.data.prd_content && (
+                        <button onClick={() => generateFeatureDDD(selectedItem.data.id)} disabled={generatingItem === `ddd-${selectedItem.data.id}`} className="btn" style={{ background: 'var(--bg-glass)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', padding: '8px 16px' }}>
+                          {generatingItem === `ddd-${selectedItem.data.id}` ? <Loader2 className="animate-spin" /> : <><Grid size={16} /> Gerar Arquitetura DDD</>}
+                        </button>
+                      )}
+                      <button onClick={() => generatePrd(selectedItem.data.id)} disabled={generatingItem === selectedItem.data.id} className="btn btn-primary" style={{ background: 'var(--accent-purple)', padding: '8px 16px' }}>
+                        {generatingItem === selectedItem.data.id ? <Loader2 className="animate-spin" /> : <><Sparkles size={16} /> {selectedItem.data.prd_content ? 'Regerar PRD' : 'Gerar PRD com IA'}</>}
+                      </button>
+                    </div>
                   </div>
+                  
+                  {selectedItem.data.ddd_content && (
+                    <div style={{ marginBottom: '24px', background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '8px', borderLeft: '4px solid var(--accent-blue)' }}>
+                      <h4 style={{ margin: '0 0 16px 0', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}><Grid size={18} /> Arquitetura Macro (Domain-Driven Design)</h4>
+                      <div className="markdown-body" style={{ color: 'var(--text-primary)' }}>
+                        <ReactMarkdown>{selectedItem.data.ddd_content}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedItem.data.prd_content ? (
                     <div style={{ background: 'var(--bg-glass)', padding: '24px', borderRadius: '8px' }}>
                       <RefinementVisualizer 
@@ -1286,6 +1345,11 @@ export function ProjectView() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>Especificação Técnica & TDD</h3>
                     <div style={{ display: 'flex', gap: '8px' }}>
+                      {selectedItem.data.spec_content && (
+                        <button onClick={() => generateCardDDD(selectedItem.data.id)} disabled={generatingItem === `ddd-card-${selectedItem.data.id}`} className="btn" style={{ background: 'var(--bg-glass)', border: '1px solid var(--accent-emerald)', color: 'var(--accent-emerald)', padding: '8px 16px' }}>
+                          {generatingItem === `ddd-card-${selectedItem.data.id}` ? <Loader2 className="animate-spin" /> : <><Grid size={16} /> Gerar Código DDD</>}
+                        </button>
+                      )}
                       <button onClick={() => exportToGithub(selectedItem.data.id)} disabled={!selectedItem.data.spec_content || generatingItem === 'export-github'} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-glass)', color: 'var(--text-primary)' }}>
                         {generatingItem === 'export-github' ? <Loader2 className="animate-spin" size={16} /> : '📦 Exportar p/ Github'}
                       </button>
@@ -1294,6 +1358,16 @@ export function ProjectView() {
                       </button>
                     </div>
                   </div>
+
+                  {selectedItem.data.ddd_spec_content && (
+                    <div style={{ marginBottom: '24px', background: 'rgba(16, 185, 129, 0.05)', padding: '20px', borderRadius: '8px', borderLeft: '4px solid var(--accent-emerald)' }}>
+                      <h4 style={{ margin: '0 0 16px 0', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', gap: '8px' }}><Grid size={18} /> Código Arquitetado em DDD</h4>
+                      <div className="markdown-body" style={{ color: 'var(--text-primary)' }}>
+                        <ReactMarkdown>{selectedItem.data.ddd_spec_content}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedItem.data.spec_content ? (
                     <div style={{ background: 'var(--bg-glass)', padding: '24px', borderRadius: '8px' }}>
                       <RefinementVisualizer prdContent={selectedItem.data.spec_content} />

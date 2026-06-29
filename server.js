@@ -567,6 +567,93 @@ Com base nisso, escreva APENAS os cenários de teste automatizados em código Cy
   }
 });
 
+// Agente Arquiteto DDD (Nível Feature)
+app.post('/api/ai/feature-ddd', authenticateToken, async (req, res) => {
+  if (!openai) return res.status(500).json({ error: 'OPENAI_API_KEY não configurada.' });
+  const { feature_id } = req.body;
+
+  const db = await readDB();
+  const feature = db.features.find(f => f.id === feature_id);
+  if (!feature) return res.status(404).json({ error: 'Feature não encontrada.' });
+
+  try {
+    console.log(`[Arquiteto DDD] Iniciando modelagem macro da feature: ${feature.title}`);
+    const prompt = `Atue como um Arquiteto de Software Sênior especialista em Domain-Driven Design (DDD).
+Abaixo está o PRD (Product Requirements Document) da Feature: "${feature.title}".
+
+PRD:
+${feature.prd_content || feature.description || 'Sem PRD gerado.'}
+
+Sua tarefa é analisar este domínio e gerar um Documento de Arquitetura Macro em formato Markdown detalhando:
+1. Linguagem Ubíqua (Glossário do negócio).
+2. Bounded Contexts (Contextos Delimitados).
+3. Entidades (Entities), Agregados (Aggregates) e Objetos de Valor (Value Objects).
+4. Casos de Uso principais.
+
+Retorne APENAS o documento em Markdown puro.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const dddContent = completion.choices[0].message.content;
+    const index = db.features.findIndex(f => f.id === feature_id);
+    db.features[index].ddd_content = dddContent;
+    await writeDB(db);
+
+    res.json({ ddd_content: dddContent });
+  } catch (error) {
+    console.error('[Arquiteto DDD] Erro:', error);
+    res.status(500).json({ error: 'Falha ao gerar Arquitetura DDD.' });
+  }
+});
+
+// Agente Especialista DDD (Nível Card/História)
+app.post('/api/ai/card-ddd', authenticateToken, async (req, res) => {
+  if (!openai) return res.status(500).json({ error: 'OPENAI_API_KEY não configurada.' });
+  const { card_id } = req.body;
+
+  const db = await readDB();
+  const card = db.cards.find(c => c.id === card_id);
+  if (!card) return res.status(404).json({ error: 'Card não encontrado.' });
+  
+  const feature = db.features.find(f => f.id === card.feature_id);
+
+  try {
+    console.log(`[Especialista DDD] Gerando código DDD para a história: ${card.title}`);
+    const prompt = `Atue como um Desenvolvedor Sênior e Engenheiro de Software especialista em Domain-Driven Design (DDD).
+Você deve gerar a especificação de código estritamente seguindo os princípios táticos do DDD (Entidades ricas, Repositórios, Casos de Uso/Application Services) para a seguinte história de usuário:
+
+TÍTULO: ${card.title}
+DESCRIÇÃO: ${card.description}
+PRD DA FEATURE PAI: ${feature?.prd_content || 'N/A'}
+ARQUITETURA MACRO DA FEATURE PAI: ${feature?.ddd_content || 'N/A'}
+
+Sua tarefa:
+Gere a estrutura de pastas e os principais blocos de código (em TypeScript ou a linguagem que preferir) para resolver esta história. 
+O output deve estar em Markdown contendo blocos de código (\`\`\`). Separe claramente a camada de Domínio, Aplicação e Infraestrutura.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const dddSpecContent = completion.choices[0].message.content;
+    
+    // Atualizar usando leitura fresca para evitar race conditions
+    const currentDb = await readDB();
+    const index = currentDb.cards.findIndex(c => c.id === card_id);
+    if (index !== -1) currentDb.cards[index].ddd_spec_content = dddSpecContent;
+    await writeDB(currentDb);
+
+    res.json({ ddd_spec_content: dddSpecContent });
+  } catch (error) {
+    console.error('[Especialista DDD] Erro:', error);
+    res.status(500).json({ error: 'Falha ao gerar Código DDD.' });
+  }
+});
+
 app.post('/api/ai/extract-features', authenticateToken, async (req, res) => {
   if (!openai) return res.status(500).json({ error: 'OPENAI_API_KEY não configurada no servidor.' });
   const { document_text } = req.body;
