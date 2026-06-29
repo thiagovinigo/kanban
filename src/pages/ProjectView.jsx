@@ -523,6 +523,16 @@ export function ProjectView() {
         }
       }
 
+      // Triggers das automações da Cadeia de Valor (Agents Pipeline)
+      if (newColId === 'col-spec' && !card.spec_content) {
+        generateSpec(draggableId);
+      }
+      
+      if (newColId === 'col-dev') {
+        // Automatically export to Github Actions to run the Developer Agent
+        exportToGithub(draggableId);
+      }
+
     } 
     catch (err) { setCards(prevCards); alert('Erro ao mover a história: ' + err.message); }
   };
@@ -1292,16 +1302,18 @@ export function ProjectView() {
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
               <label className="btn" style={{ background: 'var(--accent-blue)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isUploadingContext ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
-                {isUploadingContext ? 'Processando arquivo...' : 'Selecionar Arquivo (PDF/DOCX)'}
-                <input type="file" style={{ display: 'none' }} disabled={isUploadingContext} onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
+                {isUploadingContext ? 'Processando arquivos...' : 'Selecionar Arquivos (PDF/DOCX)'}
+                <input type="file" multiple style={{ display: 'none' }} disabled={isUploadingContext} onChange={async (e) => {
+                  const files = Array.from(e.target.files);
+                  if (files.length === 0) return;
                   setIsUploadingContext(true);
                   try {
-                    const text = await apiClient.ai.uploadContext(file);
-                    setImportContent(prev => prev ? prev + '\n\n' + text : text);
+                    const promises = files.map(f => apiClient.ai.uploadContext(f));
+                    const results = await Promise.all(promises);
+                    const allText = results.join('\n\n');
+                    setImportContent(prev => prev ? prev + '\n\n' + allText : allText);
                   } catch (err) {
-                    alert('Erro ao extrair documento: ' + err.message);
+                    alert('Erro ao extrair documentos: ' + err.message);
                   } finally {
                     setIsUploadingContext(false);
                     e.target.value = null;

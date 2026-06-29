@@ -490,50 +490,62 @@ app.post('/api/ai/spec', authenticateToken, async (req, res) => {
   const feature = db.features.find(f => f.id === card.feature_id);
   const project = db.projects.find(p => p.id === feature.project_id);
 
-  const devConfig = project.phase_configurations?.development || { agents: [], skills: [] };
-  const secConfig = project.phase_configurations?.security || { agents: [], skills: [] };
-  const qaConfig = project.phase_configurations?.qa || { agents: [], skills: [] };
-  
-  const allAgents = [...(devConfig.agents||[]), ...(secConfig.agents||[]), ...(qaConfig.agents||[])];
-  const allSkills = [...(devConfig.skills||[]), ...(secConfig.skills||[]), ...(qaConfig.skills||[])];
-
-  const selectedAgents = allAgents.map(id => db.agents?.find(a => a.id === id)).filter(Boolean).map(a => `- ${a.title}: ${a.description}`).join('\n');
-  const selectedSkills = allSkills.map(id => db.skills?.find(a => a.id === id)).filter(Boolean).map(a => `- ${a.title}: ${a.description}`).join('\n');
-
   try {
-    const prompt = `Atue como um Tech Lead / Arquiteto de Software.
-Você precisa gerar uma Especificação Técnica + Casos de Teste (TDD) para a História de Usuário: "${card.title}".
-A história pertence ao Épico: "${feature.title}".
-Contexto Global do Projeto:
-${project.project_context ? project.project_context + '\n' : '(Não fornecido)\n'}
-Aqui está o PRD do Épico para contexto:
-${feature.prd_content ? feature.prd_content.substring(0, 1000) + '...' : '(Vazio)'}
-
-Agentes de Engenharia e QA Ativados:
-${selectedAgents || 'Nenhum'}
-
-Padrões de Código e Skills:
-${selectedSkills || 'Nenhuma'}
-
-Estrutura da Especificação (em Markdown):
-1. **Visão Técnica da História**
-2. **Modelagem de Dados / API**
-3. **Comportamento Esperado (BDD / Gherkin)**
-4. **Casos de Teste TDD (O que um agente autônomo deve testar)**
-
-Retorne APENAS o Markdown.`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }]
-    });
-
-    const specContent = completion.choices[0].message.content;
+    console.log(`[Cadeia de Agentes] Iniciando geração de Spec para o Card: ${card.title}`);
     
+    // 1. PO Agent
+    console.log(`[Cadeia de Agentes] 1/3 - Rodando Agente PO...`);
+    const poPrompt = `Atue como um Product Owner sênior. 
+A história de usuário é: "${card.title}". Épico: "${feature.title}".
+Contexto: ${project.project_context ? project.project_context : '(Não fornecido)'}
+Escreva APENAS a Regra de Negócio detalhada e os Critérios de Aceite no formato BDD (Given/When/Then).`;
+    const poCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: poPrompt }]
+    });
+    const poOutput = poCompletion.choices[0].message.content;
+
+    // 2. Tech Lead Agent
+    console.log(`[Cadeia de Agentes] 2/3 - Rodando Agente Tech Lead...`);
+    const techPrompt = `Atue como um Tech Lead / Arquiteto de Software.
+Você deve gerar a Especificação Técnica para esta história de usuário: "${card.title}".
+Abaixo está o BDD gerado pelo Product Owner:
+${poOutput}
+
+Com base nisso, escreva APENAS:
+1. Arquitetura proposta.
+2. Contrato de API (Endpoints necessários).
+3. Modelagem de Dados (Campos do banco).`;
+    const techCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: techPrompt }]
+    });
+    const techOutput = techCompletion.choices[0].message.content;
+
+    // 3. QA Agent
+    console.log(`[Cadeia de Agentes] 3/3 - Rodando Agente QA...`);
+    const qaPrompt = `Atue como um QA Engineer / SDET.
+Abaixo está a Especificação Técnica e o BDD da história de usuário: "${card.title}".
+BDD:
+${poOutput}
+Específica Técnica:
+${techOutput}
+
+Com base nisso, escreva APENAS os cenários de teste automatizados em código Cypress (E2E) e Jest (Unitários). Coloque o código dentro de blocos de código markdown (\`\`\`javascript).`;
+    const qaCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: qaPrompt }]
+    });
+    const qaOutput = qaCompletion.choices[0].message.content;
+
+    // Concat outputs
+    const specContent = `### Regras de Negócio e BDD (Agente PO)\n${poOutput}\n\n---\n\n### Especificação Técnica (Agente Tech Lead)\n${techOutput}\n\n---\n\n### Cenários de Teste (Agente QA)\n${qaOutput}`;
+    
+    console.log(`[Cadeia de Agentes] Geração concluída com sucesso!`);
+
     const index = db.cards.findIndex(c => c.id === card_id);
     let newSpecContent = specContent;
     
-    // Se já houver um spec_content em JSON, anexar o Markdown ao invés de sobrescrever
     const existingSpec = db.cards[index].spec_content;
     if (existingSpec && existingSpec.trim().startsWith('{')) {
       const match = existingSpec.match(/^(\{[\s\S]*?\})/);
@@ -546,8 +558,8 @@ Retorne APENAS o Markdown.`;
 
     res.json({ spec_content: newSpecContent });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Falha ao gerar a Spec/TDD.' });
+    console.error('[Cadeia de Agentes] Erro:', error);
+    res.status(500).json({ error: 'Falha ao gerar a Cadeia de Spec/TDD.' });
   }
 });
 
@@ -1059,6 +1071,24 @@ ${card.spec_content}
       sha
     });
 
+    // Disparar o GitHub Actions (repository_dispatch)
+    try {
+      await octokit.request(`POST /repos/{owner}/{repo}/dispatches`, {
+        owner,
+        repo,
+        event_type: 'ai-developer-trigger',
+        client_payload: {
+          card_id: card.id,
+          title: card.title,
+          spec_path: path
+        }
+      });
+      console.log(`[GitHub Actions] Webhook repository_dispatch (ai-developer-trigger) disparado para ${owner}/${repo}`);
+    } catch (dispatchErr) {
+      console.error("[GitHub Actions] Falha ao disparar dispatch:", dispatchErr);
+      // We don't throw here, just log, since the file was created successfully.
+    }
+
     res.json({ success: true, url: response.data.content.html_url });
   } catch (error) {
     console.error(error);
@@ -1101,129 +1131,38 @@ ${content.substring(0, 25000)}`;
     const extractedFeatures = pmParsed.features || [];
     console.log(`✅ [PM Agent] Extraiu ${extractedFeatures.length} Features macro. Delegação iniciada...`);
     const featuresListStr = extractedFeatures.map(f => `- Épico: ${f.epic} | Feature: ${f.feature} (${f.description})`).join('\n');
-
-    const basePoPrompt = `O Product Manager já definiu as Features macro do projeto abaixo:
-${featuresListStr}
-
-Contexto Global: ${pmParsed.project_context_summary}
-
-Documento Base:
-${content.substring(0, 25000)}
-
-Você é um Product Owner Especialista em {ESPECIALIDADE}.
-Sua missão é analisar as Features acima e o Documento Base, e extrair as Histórias de Usuário detalhadas focadas EXCLUSIVAMENTE na sua área de especialidade ({ESPECIALIDADE}).
-- Agrupe as histórias nas Features e Épicos listados acima (use os mesmos nomes definidos pelo PM).
-- Para cada história, liste explícitamente as Dependências e Riscos no campo description.
-- Quebre fluxos complexos em múltiplas histórias.
-
-Retorne APENAS JSON válido com esta estrutura exata:
-{
-  "stories": [
-    { 
-      "title": "string", 
-      "epic": "string", 
-      "feature": "string", 
-      "description": "string", 
-      "persona": "{PERSONA_NOME}" 
-    }
-  ]
-}`;
-
-    const personas = [
-      { spec: "Experiência do Usuário (UX/UI), Telas, Fluxos de Navegação e Acessibilidade", name: "PO de UX/UI" },
-      { spec: "Backend, Regras de Negócio, Banco de Dados, APIs e Integrações", name: "PO de Backend/Dados" },
-      { spec: "Casos de Erro, Edge-Cases, Segurança, LGPD e Resiliência", name: "PO de Risco/Segurança" }
-    ];
-
-    const poPromises = personas.map(p => {
-      const prompt = basePoPrompt.replace(/{ESPECIALIDADE}/g, p.spec).replace(/{PERSONA_NOME}/g, p.name);
-      console.log(`🧠 [${p.name}] Iniciando extração de histórias...`);
-      return openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
-        response_format: { type: "json_object" },
-        temperature: 0.2
-      }).then(res => {
-        console.log(`✅ [${p.name}] Histórias extraídas com sucesso!`);
-        return res;
-      });
-    });
-
-    const poCompletions = await Promise.all(poPromises);
-    console.log("🚀 [Orquestrador] Todos os agentes finalizaram. Mesclando resultados...");
-
-    let allStories = [];
-    for (const completion of poCompletions) {
-      try {
-        const pJson = JSON.parse(completion.choices[0].message.content);
-        if (pJson.stories && Array.isArray(pJson.stories)) {
-          allStories = allStories.concat(pJson.stories);
-        }
-      } catch(e) { console.error("Error parsing PO response:", e); }
-    }
-    console.log(`📊 [Orquestrador] Total de histórias combinadas: ${allStories.length}`);
-
-    const parsed = {
-      project_context_summary: pmParsed.project_context_summary,
-      stories: allStories
-    };
-
-    if (parsed.project_context_summary) {
+    if (pmParsed.project_context_summary) {
       const pIdx = db.projects.findIndex(p => p.id === project_id);
       if (pIdx !== -1) {
         if (!db.projects[pIdx].project_context) {
-          db.projects[pIdx].project_context = parsed.project_context_summary;
+          db.projects[pIdx].project_context = pmParsed.project_context_summary;
         } else {
-          db.projects[pIdx].project_context += '\n\n### Adicionado via Importador:\n' + parsed.project_context_summary;
+          db.projects[pIdx].project_context += '\n\n### Adicionado via Importador:\n' + pmParsed.project_context_summary;
         }
       }
     }
 
-    const stories = parsed.stories || [];
-
-    // db already loaded above
     const createdFeatures = [];
-    const createdCards = [];
 
-    // Group by feature
-    const grouped = {};
-    for (const story of stories) {
-      if (!grouped[story.feature]) grouped[story.feature] = [];
-      grouped[story.feature].push(story);
-    }
-
-    for (const featureName of Object.keys(grouped)) {
+    // Create Features based purely on PM macro analysis
+    for (const f of extractedFeatures) {
       const featureId = Date.now().toString() + Math.random().toString(36).substring(7);
       
       db.features.push({
         id: featureId,
         project_id,
-        title: featureName,
-        description: `Importado do documento (Épico sugerido: ${grouped[featureName][0].epic})`,
+        title: f.feature,
+        description: `Importado do documento (Épico: ${f.epic})\n\nDescrição: ${f.description}`,
         column_id: 'col-backlog',
         prd_content: null,
         created_at: new Date().toISOString()
       });
-      createdFeatures.push(featureName);
-
-      for (const story of grouped[featureName]) {
-        db.cards.push({
-          id: Date.now().toString() + Math.random().toString(36).substring(7),
-          feature_id: featureId,
-          title: story.title,
-          description: `Como ${story.persona || 'usuário'}, quero ${story.title}.\nContexto: ${story.description}`,
-          column_id: 'col-backlog',
-          spec_content: null,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        });
-        createdCards.push(story.title);
-      }
+      createdFeatures.push(f.feature);
     }
 
     await writeDB(db);
 
-    res.json({ success: true, featuresCount: createdFeatures.length, cardsCount: createdCards.length });
+    res.json({ success: true, featuresCount: createdFeatures.length, cardsCount: 0 });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Falha ao importar o documento.' });
