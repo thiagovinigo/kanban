@@ -221,18 +221,33 @@ export function ProjectView() {
     setGeneratingItem('creating-stories');
     try {
       const newCards = [];
+      const updatedCards = [];
       for (const story of refinedStories) {
-        // Prepare exactly what we get from the StrategicRefinement schema
-        const storyCard = await apiClient.cards.create({
-          feature_id: selectedItem.data.id, // we're inside the feature modal
-          title: story.title,
-          description: `✅ **História Gerada Automaticamente**\n\n${story.businessNarrative}`,
-          spec_content: JSON.stringify({ refinedStories: [story] }) // Embed the single story
-        });
-        newCards.push(storyCard);
+        if (story.card_id && story.card_id !== 'null' && cards.find(c => String(c.id) === String(story.card_id))) {
+          // Update existing card
+          const updatedCard = await apiClient.cards.update(story.card_id, {
+            title: story.title,
+            description: `✅ **História Gerada/Refinada Automaticamente**\n\n${story.businessNarrative}`,
+            spec_content: JSON.stringify({ refinedStories: [story] })
+          });
+          updatedCards.push(updatedCard);
+        } else {
+          // Create new card
+          const storyCard = await apiClient.cards.create({
+            feature_id: selectedItem.data.id,
+            title: story.title,
+            description: `✅ **História Gerada Automaticamente**\n\n${story.businessNarrative}`,
+            spec_content: JSON.stringify({ refinedStories: [story] })
+          });
+          newCards.push(storyCard);
+        }
       }
-      setCards(prev => [...prev, ...newCards]);
-      alert(`${refinedStories.length} histórias exportadas para o Backlog com sucesso!`);
+      
+      setCards(prev => {
+        const filtered = prev.filter(p => !updatedCards.find(u => String(u.id) === String(p.id)));
+        return [...filtered, ...updatedCards, ...newCards];
+      });
+      alert(`${updatedCards.length} histórias atualizadas e ${newCards.length} novas exportadas para o Backlog com sucesso!`);
     } catch (err) {
       alert('Erro ao exportar histórias: ' + err.message);
     } finally {
