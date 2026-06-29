@@ -388,7 +388,7 @@ app.post('/api/ai/prd', authenticateToken, async (req, res) => {
 
   try {
     const existingCards = db.cards.filter(c => c.feature_id === feature_id);
-    const existingCardsStr = existingCards.length > 0 ? `\n\nHistórias Existentes para esta Feature:\n${existingCards.map(c => `ID: ${c.id} | Título: ${c.title} | Contexto: ${c.description}`).join(`\n`)}\nIMPORTANTE: As histórias acima provavelmente são rascunhos ou placeholders muito amplos. Você DEVE obrigatoriamente quebrar a Feature em múltiplas histórias menores. Você PODE usar o "card_id" de uma história existente no seu array "refinedStories" para atualizá-la (cobrindo uma parte do fluxo), mas você DEVE gerar novas histórias ADICIONAIS (com card_id: null) para cobrir o restante do escopo que foi extraído na sua Análise de Divisão.` : "";
+    const existingCardsStr = existingCards.length > 0 ? `\n\nHistórias Existentes no Backlog para esta Feature:\n${existingCards.map(c => `ID: ${c.id} | Título: ${c.title} | Contexto: ${c.description}`).join(`\n`)}\n\nIMPORTANTE: O usuário já definiu a quantidade de histórias para esta feature. O seu trabalho como PM NÃO é criar novas histórias do zero, mas sim REFINAR EXAUSTIVAMENTE as histórias existentes acima. Você DEVE retornar o array "refinedStories" contendo EXATAMENTE as histórias listadas acima, usando o mesmo "card_id" de cada uma, mas preenchendo todos os campos avançados (PRD, BDD, estimativas). NÃO crie histórias adicionais a menos que o escopo global do projeto absolutamente exija para não quebrar a aplicação.` : "";
 
     const prompt = `**Role:** Especialista em Gestão de Produtos Avançada, Análise de Requisitos, Escrita de User Stories, Planejamento Técnico e Organização de Backlog.
 **Task:** Analisar a Feature e dividi-la em User Stories menores e mais gerenciáveis. Você DEVE extrair DE FORMA EXAUSTIVA E COMPLETA TODAS as User Stories necessárias para cobrir a Feature de ponta a ponta. Não pule nenhum fluxo de sucesso, fluxo de erro, tratamento de exceção ou configuração necessária para que a feature funcione perfeitamente. Para cada User Story, gere uma estrutura completa: visão do usuário, narrativa de negócio, Critérios de Aceite (BDD), resumo, cenários de teste em três níveis, estimativa, detalhamento das tasks de desenvolvimento, análise de riscos e considerações.
@@ -1131,6 +1131,72 @@ ${content.substring(0, 25000)}`;
     const extractedFeatures = pmParsed.features || [];
     console.log(`✅ [PM Agent] Extraiu ${extractedFeatures.length} Features macro. Delegação iniciada...`);
     const featuresListStr = extractedFeatures.map(f => `- Épico: ${f.epic} | Feature: ${f.feature} (${f.description})`).join('\n');
+    const basePoPrompt = `O Product Manager já definiu as Features macro do projeto abaixo:
+${featuresListStr}
+
+Contexto Global: ${pmParsed.project_context_summary}
+
+Documento Base:
+${content.substring(0, 25000)}
+
+Você é um Product Owner Especialista em {ESPECIALIDADE}.
+Sua missão é analisar as Features acima e o Documento Base, e extrair as Histórias de Usuário detalhadas focadas EXCLUSIVAMENTE na sua área de especialidade ({ESPECIALIDADE}).
+- Agrupe as histórias nas Features e Épicos listados acima (use os mesmos nomes definidos pelo PM).
+- Para cada história, liste explícitamente as Dependências e Riscos no campo description.
+- Quebre fluxos complexos em múltiplas histórias.
+
+Retorne APENAS JSON válido com esta estrutura exata:
+{
+  "stories": [
+    { 
+      "title": "string", 
+      "epic": "string", 
+      "feature": "string", 
+      "description": "string", 
+      "persona": "{PERSONA_NOME}" 
+    }
+  ]
+}`;
+
+    const personas = [
+      { spec: "Experiência do Usuário (UX/UI), Telas, Fluxos de Navegação e Acessibilidade", name: "PO de UX/UI" },
+      { spec: "Backend, Regras de Negócio, Banco de Dados, APIs e Integrações", name: "PO de Backend/Dados" },
+      { spec: "Casos de Erro, Edge-Cases, Segurança, LGPD e Resiliência", name: "PO de Risco/Segurança" }
+    ];
+
+    const poPromises = personas.map(p => {
+      const prompt = basePoPrompt.replace(/{ESPECIALIDADE}/g, p.spec).replace(/{PERSONA_NOME}/g, p.name);
+      console.log(`🧠 [${p.name}] Iniciando extração de histórias...`);
+      return openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      }).then(res => {
+        console.log(`✅ [${p.name}] Histórias extraídas com sucesso!`);
+        return res;
+      });
+    });
+
+    const poCompletions = await Promise.all(poPromises);
+    console.log("🚀 [Orquestrador] Todos os agentes finalizaram. Mesclando resultados...");
+
+    let allStories = [];
+    for (const completion of poCompletions) {
+      try {
+        const pJson = JSON.parse(completion.choices[0].message.content);
+        if (pJson.stories && Array.isArray(pJson.stories)) {
+          allStories = allStories.concat(pJson.stories);
+        }
+      } catch(e) { console.error("Error parsing PO response:", e); }
+    }
+    console.log(`📊 [Orquestrador] Total de histórias combinadas: ${allStories.length}`);
+
+    const parsed = {
+      project_context_summary: pmParsed.project_context_summary,
+      stories: allStories
+    };
+
     if (pmParsed.project_context_summary) {
       const pIdx = db.projects.findIndex(p => p.id === project_id);
       if (pIdx !== -1) {
@@ -1142,27 +1208,50 @@ ${content.substring(0, 25000)}`;
       }
     }
 
-    const createdFeatures = [];
+    const stories = parsed.stories || [];
 
-    // Create Features based purely on PM macro analysis
-    for (const f of extractedFeatures) {
+    const createdFeatures = [];
+    const createdCards = [];
+
+    // Group by feature
+    const grouped = {};
+    for (const story of stories) {
+      if (!grouped[story.feature]) grouped[story.feature] = [];
+      grouped[story.feature].push(story);
+    }
+
+    for (const featureName of Object.keys(grouped)) {
       const featureId = Date.now().toString() + Math.random().toString(36).substring(7);
       
       db.features.push({
         id: featureId,
         project_id,
-        title: f.feature,
-        description: `Importado do documento (Épico: ${f.epic})\n\nDescrição: ${f.description}`,
+        title: featureName,
+        description: `Importado do documento (Épico sugerido: ${grouped[featureName][0].epic})`,
         column_id: 'col-backlog',
         prd_content: null,
         created_at: new Date().toISOString()
       });
-      createdFeatures.push(f.feature);
+      createdFeatures.push(featureName);
+
+      for (const story of grouped[featureName]) {
+        db.cards.push({
+          id: Date.now().toString() + Math.random().toString(36).substring(7),
+          feature_id: featureId,
+          title: story.title,
+          description: `Como ${story.persona || 'usuário'}, quero ${story.title}.\nContexto: ${story.description}`,
+          column_id: 'col-backlog',
+          spec_content: null,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        });
+        createdCards.push(story.title);
+      }
     }
 
     await writeDB(db);
 
-    res.json({ success: true, featuresCount: createdFeatures.length, cardsCount: 0 });
+    res.json({ success: true, featuresCount: createdFeatures.length, cardsCount: createdCards.length });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Falha ao importar o documento.' });
