@@ -1,0 +1,1 @@
+require('dotenv').config(); const { createClient } = require('@supabase/supabase-js'); process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY); supabase.from('users').select('*').then(r => console.log(r.data)).catch(console.error);

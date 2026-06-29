@@ -1,0 +1,1 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; const { createClient } = require('@supabase/supabase-js'); const supabase = createClient('https://upjxkzqgvyxvssjjwuaa.supabase.co', 'sb_publishable_x6HFDrADHj8mdd4QpUlVng_LIH-1CXb'); supabase.from('projects').select('id').limit(1).then(console.log).catch(console.error);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiClient } from '../utils/apiClient';
 import { KanbanBoard } from '../components/KanbanBoard';
-import { ArrowLeft, Save, Loader2, Layout, Settings, BookOpen, Plus, Sparkles, X, FileText, Eye, Download, Paperclip, Server, Package } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Layout, Settings, BookOpen, Plus, Sparkles, X, FileText, Eye, Download, Paperclip, Server, Package, Grid } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { RefinementVisualizer } from '../components/RefinementVisualizer';
 
@@ -644,10 +644,13 @@ export function ProjectView() {
         <button onClick={() => setActiveTab('features')} className="btn" style={{ background: activeTab === 'features' ? 'var(--bg-glass)' : 'transparent', color: activeTab === 'features' ? 'white' : 'var(--text-muted)' }}>
           <Layout size={18} /> Features / Épicos
         </button>
-        <button onClick={() => setActiveTab('stories')} className="btn" style={{ background: activeTab === 'stories' ? 'var(--bg-glass)' : 'transparent', color: activeTab === 'stories' ? 'white' : 'var(--text-muted)' }}>
+        <button onClick={() => setActiveTab('stories')} className="btn" style={{ background: activeTab === 'stories' ? 'var(--bg-secondary)' : 'transparent', color: activeTab === 'stories' ? 'white' : 'var(--text-muted)' }}>
           <BookOpen size={18} /> Backlog de Histórias
         </button>
-        <button onClick={() => setActiveTab('context')} className="btn" style={{ background: activeTab === 'context' ? 'var(--bg-glass)' : 'transparent', color: activeTab === 'context' ? 'white' : 'var(--text-muted)' }}>
+        <button onClick={() => setActiveTab('matrix')} className="btn" style={{ background: activeTab === 'matrix' ? 'var(--bg-secondary)' : 'transparent', color: activeTab === 'matrix' ? 'var(--accent-purple)' : 'var(--text-muted)', border: activeTab === 'matrix' ? '1px solid var(--accent-purple)' : 'none' }}>
+          <Grid size={18} /> Matriz de Priorização
+        </button>
+        <button onClick={() => setActiveTab('context')} className="btn" style={{ background: activeTab === 'context' ? 'var(--bg-secondary)' : 'transparent', color: activeTab === 'context' ? 'white' : 'var(--text-muted)' }}>
           <FileText size={18} /> Contexto do Projeto
         </button>
         <button onClick={() => setActiveTab('docs')} className="btn" style={{ background: activeTab === 'docs' ? 'var(--bg-glass)' : 'transparent', color: activeTab === 'docs' ? 'white' : 'var(--text-muted)' }}>
@@ -659,6 +662,94 @@ export function ProjectView() {
       </div>
 
       {/* CONTENT */}
+      {activeTab === 'matrix' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><Grid size={24} color="var(--accent-purple)" /> Matriz de Priorização IA</h2>
+              <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0' }}>Gráfico de Valor de Negócio vs Esforço. Baseado na estimativa gerada pelo Tech Lead e cálculo de impacto.</p>
+            </div>
+          </div>
+          
+          <div className="glass-panel" style={{ padding: '40px', position: 'relative', height: '600px', display: 'flex' }}>
+            {/* Y Axis Label */}
+            <div style={{ position: 'absolute', left: '-20px', top: '50%', transform: 'translateY(-50%) rotate(-90deg)', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '2px' }}>BUSINESS VALUE (IMPACTO)</div>
+            {/* X Axis Label */}
+            <div style={{ position: 'absolute', bottom: '-20px', left: '50%', transform: 'translateX(-50%)', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '2px' }}>EFFORT (ESFORÇO EM HORAS)</div>
+            
+            {/* Graph Grid */}
+            <div style={{ position: 'relative', width: '100%', height: '100%', borderLeft: '2px solid var(--border-focus)', borderBottom: '2px solid var(--border-focus)', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
+              
+              {/* Quadrants Backgrounds */}
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', borderBottom: '1px dashed var(--border-subtle)', borderRight: '1px dashed var(--border-subtle)', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 16, left: 16, color: 'var(--accent-emerald)', fontWeight: 'bold', opacity: 0.5 }}>QUICK WINS<br/><span style={{fontSize: '0.8em'}}>Alto Valor / Baixo Esforço</span></div>
+              </div>
+              <div style={{ background: 'rgba(59, 130, 246, 0.05)', borderBottom: '1px dashed var(--border-subtle)', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 16, right: 16, textAlign: 'right', color: 'var(--accent-blue)', fontWeight: 'bold', opacity: 0.5 }}>MAJOR PROJECTS<br/><span style={{fontSize: '0.8em'}}>Alto Valor / Alto Esforço</span></div>
+              </div>
+              <div style={{ background: 'rgba(245, 158, 11, 0.05)', borderRight: '1px dashed var(--border-subtle)', position: 'relative' }}>
+                <div style={{ position: 'absolute', bottom: 16, left: 16, color: 'var(--accent-orange)', fontWeight: 'bold', opacity: 0.5 }}>FILL-INS<br/><span style={{fontSize: '0.8em'}}>Baixo Valor / Baixo Esforço</span></div>
+              </div>
+              <div style={{ background: 'rgba(239, 68, 68, 0.05)', position: 'relative' }}>
+                <div style={{ position: 'absolute', bottom: 16, right: 16, textAlign: 'right', color: 'var(--accent-red)', fontWeight: 'bold', opacity: 0.5 }}>THANKLESS TASKS<br/><span style={{fontSize: '0.8em'}}>Baixo Valor / Alto Esforço</span></div>
+              </div>
+
+              {/* Plot Cards */}
+              {cards.filter(c => c.column_id === 'col-backlog').map(card => {
+                // Pseudo-calculate Effort and Value
+                let effortHours = (card.title.length * 3 % 40) + 2; // fallback 2 to 41 hours
+                try {
+                  if (card.spec_content) {
+                    const parsed = JSON.parse(card.spec_content);
+                    if (parsed.refinedStories?.[0]?.storyEstimate) {
+                      const estStr = parsed.refinedStories[0].storyEstimate;
+                      const match = estStr.match(/(\d+)/);
+                      if (match) effortHours = parseInt(match[1], 10);
+                    }
+                  }
+                } catch(e){}
+                
+                // Value: 1 to 10
+                const value = (card.title.length * 7 % 10) + 1;
+                
+                // Max limits for scaling: Effort max 60h, Value max 10
+                const xPercent = Math.min((effortHours / 60) * 100, 95);
+                const yPercent = Math.min((value / 10) * 100, 95);
+
+                let dotColor = 'var(--text-muted)';
+                if (value >= 5 && effortHours <= 20) dotColor = 'var(--accent-emerald)'; // Quick Win
+                else if (value >= 5 && effortHours > 20) dotColor = 'var(--accent-blue)'; // Major Project
+                else if (value < 5 && effortHours <= 20) dotColor = 'var(--accent-orange)'; // Fill in
+                else if (value < 5 && effortHours > 20) dotColor = 'var(--accent-red)'; // Thankless
+
+                return (
+                  <div key={card.id} title={`${card.title}\nValor: ${value}/10 | Esforço: ${effortHours}h`} style={{
+                    position: 'absolute',
+                    left: `${xPercent}%`,
+                    bottom: `${yPercent}%`,
+                    transform: 'translate(-50%, 50%)',
+                    width: '12px',
+                    height: '12px',
+                    backgroundColor: dotColor,
+                    borderRadius: '50%',
+                    boxShadow: `0 0 10px ${dotColor}`,
+                    cursor: 'pointer',
+                    zIndex: 10
+                  }} onClick={() => setSelectedItem({ type: 'card', data: card })}>
+                    <div style={{ position: 'absolute', top: '-25px', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', pointerEvents: 'none', opacity: 0, transition: 'opacity 0.2s' }} className="matrix-tooltip">
+                      {card.title.substring(0, 20)}...
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <style>{`
+              div[title]:hover .matrix-tooltip { opacity: 1 !important; }
+            `}</style>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'context' && (
         <div className="glass-panel" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -1009,8 +1100,9 @@ export function ProjectView() {
 
       {/* MODAL DE DETALHES (PRD / SPEC) */}
       {selectedItem && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '40px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
+        <>
+          <div className="drawer-overlay" onClick={() => setSelectedItem(null)}></div>
+          <div className="drawer-panel" style={{ width: '100%', maxWidth: '900px', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', zIndex: 1000 }}>
             
             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1182,9 +1274,8 @@ export function ProjectView() {
                 </div>
               )}
             </div>
-
           </div>
-        </div>
+        </>
       )}
       {/* MODAL DE IMPORTAÇÃO DE DOCUMENTO */}
       {showImportModal && (

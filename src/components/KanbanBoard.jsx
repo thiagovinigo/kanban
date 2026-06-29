@@ -3,7 +3,6 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCardContent, renderColumnHeader }) {
   
-  // Agrupa os itens por colunas
   const getItemsForColumn = (columnId) => {
     return items.filter(item => item.column_id === columnId);
   };
@@ -12,12 +11,12 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
     <DragDropContext onDragEnd={onDragEnd}>
       <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px', minHeight: '600px' }}>
         {columns.map(column => (
-          <div key={column.id} style={{ minWidth: '300px', flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-glass)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
+          <div key={column.id} className="glass-panel" style={{ minWidth: '320px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                 {column.title}
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+                <span className="badge">
                   {getItemsForColumn(column.id).length}
                 </span>
               </h3>
@@ -33,7 +32,7 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
                     padding: '16px',
                     flexGrow: 1,
                     minHeight: '200px',
-                    background: snapshot.isDraggingOver ? 'rgba(255,255,255,0.05)' : 'transparent',
+                    background: snapshot.isDraggingOver ? 'var(--bg-hover)' : 'transparent',
                     transition: 'background 0.2s ease',
                     display: 'flex',
                     flexDirection: 'column',
@@ -48,17 +47,11 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                           onClick={() => onCardClick && onCardClick(item)}
+                          className="kanban-card"
                           style={{
-                            userSelect: 'none',
-                            padding: '16px',
-                            background: 'var(--bg-secondary)',
-                            borderRadius: '8px',
-                            border: '1px solid',
-                            borderColor: snapshot.isDragging ? 'var(--accent-purple)' : 'var(--border-glass)',
-                            boxShadow: snapshot.isDragging ? '0 8px 16px rgba(0,0,0,0.3)' : 'none',
-                            transition: 'border-color 0.2s, box-shadow 0.2s',
-                            cursor: 'grab',
-                            ...provided.draggableProps.style
+                            ...provided.draggableProps.style,
+                            borderColor: snapshot.isDragging ? 'var(--accent-purple)' : 'var(--border-subtle)',
+                            boxShadow: snapshot.isDragging ? 'var(--shadow-lg)' : 'var(--shadow-sm)'
                           }}
                         >
                           {renderCardContent ? renderCardContent(item) : (

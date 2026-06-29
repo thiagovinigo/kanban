@@ -1,0 +1,1 @@
+const fs = require('fs'); let code = fs.readFileSync('server.js', 'utf8'); code = code.replace(/column_id: 'col-ideas'/g, "column_id: 'col-backlog'"); fs.writeFileSync('server.js', code); console.log('server.js patched!');

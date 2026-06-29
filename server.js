@@ -1076,55 +1076,97 @@ app.post('/api/ai/import-document', authenticateToken, async (req, res) => {
     const project = db.projects.find(p => p.id === project_id);
     const projectContextStr = project?.project_context ? `\n\nConsidere também o Contexto Global do Projeto ao extrair:\n${project.project_context}` : '';
 
-    const contextPrompt = `Leia o documento abaixo e extraia o Contexto Global do Projeto de forma EXAUSTIVA e DETALHADA. NÃO FAÇA UM RESUMO EXECUTIVO. Preserve todas as nuances, premissas, regras gerais de negócio, restrições e visão do produto presentes no documento, garantindo o contexto máximo.
-    Retorne APENAS JSON válido com a estrutura exata: { "project_context_summary": "string" }
-    
-Documento:
-${content.substring(0, 25000)}`;
-
-    const prompt = `Você é um Product Owner / Analista de Negócios Sênior especialista em extração de requisitos ágeis.
-Leia o documento abaixo e liste de forma EXAUSTIVA e GRANULAR TODAS as funcionalidades, requisitos e histórias de usuário que podem ser extraídas do escopo.
-Instruções rigorosas:
-1. IDENTIFIQUE O MAIOR NÚMERO DE FEATURES POSSÍVEL E, DEPOIS, O MAIOR NÚMERO DE HISTÓRIAS SEM NENHUMA RESTRIÇÃO OU LIMITE DE QUANTIDADE! Não resuma absolutamente nada. Quebre fluxos complexos em múltiplas histórias.
-2. Extraia tudo o que estiver implícito (regras de erro, empty states, fluxos de falha, cenários de exceção).
-3. Agrupe as histórias logicamente em Épicos e Features correspondentes.
-4. Para cada história identificada, analise e liste explicitamente quais são as Dependências (técnicas ou de outras histórias) e os Riscos associados (de negócio, técnicos, segurança, etc).
-${projectContextStr}
-
-    Retorne APENAS JSON válido com esta estrutura exata:
-    {
-      "stories": [
-      { 
-        "title": "string", 
-        "epic": "string", 
-        "feature": "string", 
-        "description": "string (Descreva a história e inclua uma seção para 'Dependências:' e uma seção para 'Riscos:')", 
-        "persona": "string" 
-      }
-    ]
-  }
+    const pmPrompt = `Leia o documento abaixo e extraia o Contexto Global do Projeto de forma EXAUSTIVA e DETALHADA.
+Em seguida, defina uma lista macro de Épicos e Features que compõem este projeto.
+Retorne APENAS JSON válido com a estrutura exata: 
+{ 
+  "project_context_summary": "string",
+  "features": [
+    { "epic": "string", "feature": "string", "description": "string" }
+  ]
+}
 
 Documento:
 ${content.substring(0, 25000)}`;
 
-    const [contextCompletion, storiesCompletion] = await Promise.all([
-      openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: contextPrompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
-        response_format: { type: "json_object" },
-        temperature: 0.2
-      }),
-      openai.chat.completions.create({
+    console.log("🤖 [PM Agent] Iniciando análise estratégica do documento...");
+    const pmCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: pmPrompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
+      response_format: { type: "json_object" },
+      temperature: 0.2
+    });
+
+    const pmParsed = JSON.parse(pmCompletion.choices[0].message.content);
+    const extractedFeatures = pmParsed.features || [];
+    console.log(`✅ [PM Agent] Extraiu ${extractedFeatures.length} Features macro. Delegação iniciada...`);
+    const featuresListStr = extractedFeatures.map(f => `- Épico: ${f.epic} | Feature: ${f.feature} (${f.description})`).join('\n');
+
+    const basePoPrompt = `O Product Manager já definiu as Features macro do projeto abaixo:
+${featuresListStr}
+
+Contexto Global: ${pmParsed.project_context_summary}
+
+Documento Base:
+${content.substring(0, 25000)}
+
+Você é um Product Owner Especialista em {ESPECIALIDADE}.
+Sua missão é analisar as Features acima e o Documento Base, e extrair as Histórias de Usuário detalhadas focadas EXCLUSIVAMENTE na sua área de especialidade ({ESPECIALIDADE}).
+- Agrupe as histórias nas Features e Épicos listados acima (use os mesmos nomes definidos pelo PM).
+- Para cada história, liste explícitamente as Dependências e Riscos no campo description.
+- Quebre fluxos complexos em múltiplas histórias.
+
+Retorne APENAS JSON válido com esta estrutura exata:
+{
+  "stories": [
+    { 
+      "title": "string", 
+      "epic": "string", 
+      "feature": "string", 
+      "description": "string", 
+      "persona": "{PERSONA_NOME}" 
+    }
+  ]
+}`;
+
+    const personas = [
+      { spec: "Experiência do Usuário (UX/UI), Telas, Fluxos de Navegação e Acessibilidade", name: "PO de UX/UI" },
+      { spec: "Backend, Regras de Negócio, Banco de Dados, APIs e Integrações", name: "PO de Backend/Dados" },
+      { spec: "Casos de Erro, Edge-Cases, Segurança, LGPD e Resiliência", name: "PO de Risco/Segurança" }
+    ];
+
+    const poPromises = personas.map(p => {
+      const prompt = basePoPrompt.replace(/{ESPECIALIDADE}/g, p.spec).replace(/{PERSONA_NOME}/g, p.name);
+      console.log(`🧠 [${p.name}] Iniciando extração de histórias...`);
+      return openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt + "\n\nIDIOMA OBRIGATÓRIO: Toda a sua resposta DEVE estar estritamente em PORTUGUÊS DO BRASIL (PT-BR)." }],
         response_format: { type: "json_object" },
         temperature: 0.2
-      })
-    ]);
+      }).then(res => {
+        console.log(`✅ [${p.name}] Histórias extraídas com sucesso!`);
+        return res;
+      });
+    });
 
-    const contextParsed = JSON.parse(contextCompletion.choices[0].message.content);
-    const parsed = JSON.parse(storiesCompletion.choices[0].message.content);
-    parsed.project_context_summary = contextParsed.project_context_summary;
+    const poCompletions = await Promise.all(poPromises);
+    console.log("🚀 [Orquestrador] Todos os agentes finalizaram. Mesclando resultados...");
+
+    let allStories = [];
+    for (const completion of poCompletions) {
+      try {
+        const pJson = JSON.parse(completion.choices[0].message.content);
+        if (pJson.stories && Array.isArray(pJson.stories)) {
+          allStories = allStories.concat(pJson.stories);
+        }
+      } catch(e) { console.error("Error parsing PO response:", e); }
+    }
+    console.log(`📊 [Orquestrador] Total de histórias combinadas: ${allStories.length}`);
+
+    const parsed = {
+      project_context_summary: pmParsed.project_context_summary,
+      stories: allStories
+    };
 
     if (parsed.project_context_summary) {
       const pIdx = db.projects.findIndex(p => p.id === project_id);
