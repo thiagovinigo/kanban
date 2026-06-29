@@ -78,7 +78,7 @@ p {
   cursor: grab;
   position: relative;
   overflow: hidden;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
 .kanban-card::before {
@@ -92,7 +92,6 @@ p {
 }
 
 .kanban-card:hover {
-  transform: translateY(-3px);
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   border-color: rgba(139, 92, 246, 0.3);
 }
