@@ -1007,14 +1007,32 @@ export function ProjectView() {
             onDragEnd={onDragEndFeature}
             onCardClick={(item) => setSelectedItem({ type: 'feature', data: item })}
             renderCardContent={(item) => {
+              const isGenerating = generatingItem === item.id;
               return (
-                <div>
+                <div style={{ position: 'relative' }}>
                   <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{item.tag ? <span style={{color: 'var(--accent-purple)', marginRight: '4px'}}>{item.tag}</span> : null}{item.title}</h4>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {item.tags?.includes('Arquitetura') && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}><Server size={12}/> Arquitetura</span>}
-                    {item.prd_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-purple)' }}><FileText size={12}/> PRD Gerado</span>}
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: item.computedStoryCount > 0 ? 'var(--accent-blue)' : 'var(--text-muted)', background: item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-glass)'}` }}>{item.computedStoryCount} {item.computedStoryCount === 1 ? 'história' : 'histórias'}</span>
-                  </div>
+                  
+                  {isGenerating ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                      <div className="agent-avatar pm" title="Agente PM Analisando">
+                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>PM</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600 }}>Escrevendo PRD e Histórias...</span>
+                        <div className="typing-dots">
+                          <div className="typing-dot"></div>
+                          <div className="typing-dot"></div>
+                          <div className="typing-dot"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {item.tags?.includes('Arquitetura') && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}><Server size={12}/> Arquitetura</span>}
+                      {item.prd_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-purple)' }}><FileText size={12}/> PRD Gerado</span>}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: item.computedStoryCount > 0 ? 'var(--accent-blue)' : 'var(--text-muted)', background: item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${item.computedStoryCount > 0 ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-subtle)'}` }}>{item.computedStoryCount} {item.computedStoryCount === 1 ? 'história' : 'histórias'}</span>
+                    </div>
+                  )}
                 </div>
               );
             }}
@@ -1072,18 +1090,37 @@ export function ProjectView() {
               onCardClick={(item) => setSelectedItem({ type: 'card', data: item })}
               renderCardContent={(item) => {
                 const parentFeature = features.find(f => f.id === item.feature_id);
+                const isGenerating = generatingItem === item.id;
+                
                 return (
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--accent-purple)', textTransform: 'uppercase', marginBottom: '4px', display: 'block', fontWeight: '600' }}>
                       {parentFeature ? parentFeature.title : 'Sem Feature'}
                     </span>
                     <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{item.tag ? <span style={{color: 'var(--accent-blue)', marginRight: '4px'}}>{item.tag}</span> : null}{item.title}</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                      {item.tags && item.tags.filter(t => t.startsWith('Sprint ')).map(t => (
-                        <span key={t} style={{ fontSize: '0.65rem', background: 'rgba(255, 165, 0, 0.2)', color: 'var(--accent-orange)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255, 165, 0, 0.3)' }}>{t}</span>
-                      ))}
-                      {item.spec_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}><FileText size={10}/> Spec/TDD Gerado</span>}
-                    </div>
+                    
+                    {isGenerating ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', fontWeight: 600 }}>Trio de Agentes Trabalhando...</span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <div className="agent-avatar po" title="Agente PO"><span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>PO</span></div>
+                          <div className="agent-avatar tech" title="Tech Lead"><span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>TL</span></div>
+                          <div className="agent-avatar qa" title="Agente QA"><span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>QA</span></div>
+                          <div className="typing-dots">
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                        {item.tags && item.tags.filter(t => t.startsWith('Sprint ')).map(t => (
+                          <span key={t} style={{ fontSize: '0.65rem', background: 'rgba(255, 165, 0, 0.2)', color: 'var(--accent-orange)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255, 165, 0, 0.3)' }}>{t}</span>
+                        ))}
+                        {item.spec_content && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}><FileText size={10}/> Spec/TDD Gerado</span>}
+                      </div>
+                    )}
                   </div>
                 )
               }} 
