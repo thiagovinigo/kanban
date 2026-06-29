@@ -11,9 +11,9 @@ export function KanbanBoard({ columns, items, onDragEnd, onCardClick, renderCard
     <DragDropContext onDragEnd={onDragEnd}>
       <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px', minHeight: '600px' }}>
         {columns.map(column => (
-          <div key={column.id} className="glass-panel" style={{ minWidth: '320px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div key={column.id} className="glass-panel" style={{ minWidth: '320px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTopLeftRadius: '11px', borderTopRightRadius: '11px' }}>
               <h3 style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                 {column.title}
                 <span className="badge">
