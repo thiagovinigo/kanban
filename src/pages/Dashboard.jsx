@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
@@ -42,7 +43,7 @@ export function Dashboard() {
       setNewGitRepo('');
       setNewGitToken('');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

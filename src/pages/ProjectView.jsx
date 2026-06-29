@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useParams, Link } from 'react-router-dom';
 import { apiClient } from '../utils/apiClient';
 import { KanbanBoard } from '../components/KanbanBoard';
@@ -133,7 +134,7 @@ export function ProjectView() {
       if (featsData.length > 0) setSelectedFeatureForCard(featsData[0].id);
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar projeto');
+      toast.error('Erro ao carregar projeto');
     } finally {
       setLoading(false);
     }
@@ -145,9 +146,9 @@ export function ProjectView() {
     try {
       const updated = await apiClient.projects.update(projectId, formData);
       setProject(updated);
-      alert('Configurações salvas!');
+      toast.success('Configurações salvas!');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -164,7 +165,7 @@ export function ProjectView() {
       setNewFeatureTitle('');
       if (!selectedFeatureForCard) setSelectedFeatureForCard(feature.id);
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -173,12 +174,12 @@ export function ProjectView() {
     setIsImporting(true);
     try {
       const res = await apiClient.ai.importDocument(projectId, importContent);
-      alert(`Importação concluída! ${res.featuresCount} Épicos/Features e ${res.cardsCount} Histórias extraídas.`);
+      toast.success(`Importação concluída! ${res.featuresCount} Épicos/Features e ${res.cardsCount} Histórias extraídas.`);
       setShowImportModal(false);
       setImportContent('');
       loadData(); // Reload to fetch newly created features and cards
     } catch (err) {
-      alert(err.message || 'Erro ao importar documento.');
+      toast.success(err.message || 'Erro ao importar documento.');
     } finally {
       setIsImporting(false);
     }
@@ -210,7 +211,7 @@ export function ProjectView() {
       setCards([...cards, card]);
       setNewCardTitle('');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -247,9 +248,9 @@ export function ProjectView() {
         const filtered = prev.filter(p => !updatedCards.find(u => String(u.id) === String(p.id)));
         return [...filtered, ...updatedCards, ...newCards];
       });
-      alert(`${updatedCards.length} histórias atualizadas e ${newCards.length} novas exportadas para o Backlog com sucesso!`);
+      toast.success(`${updatedCards.length} histórias atualizadas e ${newCards.length} novas exportadas para o Backlog com sucesso!`);
     } catch (err) {
-      alert('Erro ao exportar histórias: ' + err.message);
+      toast.error('Erro ao exportar histórias: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -265,10 +266,10 @@ export function ProjectView() {
       const text = ev.target.result;
       try {
         const res = await apiClient.ai.importDocument(projectId, text);
-        alert(`Importação concluída! ${res.featuresCount} Épicos/Features e ${res.cardsCount} Histórias extraídas.`);
+        toast.success(`Importação concluída! ${res.featuresCount} Épicos/Features e ${res.cardsCount} Histórias extraídas.`);
         loadData(); // Reload to fetch newly created features and cards
       } catch (err) {
-        alert('Erro ao extrair documento: ' + err.message);
+        toast.error('Erro ao extrair documento: ' + err.message);
       } finally {
         setGeneratingItem(null);
         e.target.value = null; // reset input
@@ -288,9 +289,9 @@ export function ProjectView() {
         ...prev,
         project_context: prev.project_context ? prev.project_context + '\n\n---\n\n' + text : text
       }));
-      alert('Documento extraído e adicionado ao contexto com sucesso!');
+      toast.success('Documento extraído e adicionado ao contexto com sucesso!');
     } catch (err) {
-      alert('Erro ao extrair documento: ' + err.message);
+      toast.error('Erro ao extrair documento: ' + err.message);
     } finally {
       setIsUploadingContext(false);
       e.target.value = null;
@@ -308,10 +309,10 @@ export function ProjectView() {
           newFeatures.push(f);
         }
         setFeatures(prev => [...prev, ...newFeatures]);
-        alert(`${featuresSuggested.length} features/épicos gerados com sucesso!`);
+        toast.success(`${featuresSuggested.length} features/épicos gerados com sucesso!`);
       }
     } catch (err) {
-      alert('Erro ao sugerir features: ' + err.message);
+      toast.error('Erro ao sugerir features: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -328,12 +329,12 @@ export function ProjectView() {
           newFeatures.push(f);
         }
         setFeatures(prev => [...prev, ...newFeatures]);
-        alert(`${archFeatures.length} features de arquitetura geradas com sucesso!`);
+        toast.success(`${archFeatures.length} features de arquitetura geradas com sucesso!`);
       } else {
-        alert('Nenhuma nova feature de arquitetura identificada como necessária no momento.');
+        toast.success('Nenhuma nova feature de arquitetura identificada como necessária no momento.');
       }
     } catch (err) {
-      alert('Erro ao sugerir arquitetura: ' + err.message);
+      toast.error('Erro ao sugerir arquitetura: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -354,12 +355,12 @@ export function ProjectView() {
           newCards.push(c);
         }
         setCards(prev => [...prev, ...newCards]);
-        alert(`${storiesSuggested.length} histórias sugeridas pelo Agente PO com sucesso!`);
+        toast.success(`${storiesSuggested.length} histórias sugeridas pelo Agente PO com sucesso!`);
       } else {
-        alert("O Agente PO verificou o projeto e não encontrou histórias faltando no momento.");
+        toast.success("O Agente PO verificou o projeto e não encontrou histórias faltando no momento.");
       }
     } catch (err) {
-      alert('Erro ao rodar Agente PO: ' + err.message);
+      toast.error('Erro ao rodar Agente PO: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -370,13 +371,13 @@ export function ProjectView() {
     try {
       const res = await apiClient.ai.qaEnrich(projectId);
       if (res && res.enrichedStoriesCount > 0) {
-        alert(`O Agente QA enriqueceu cenários de teste em ${res.enrichedStoriesCount} histórias!`);
+        toast.success(`O Agente QA enriqueceu cenários de teste em ${res.enrichedStoriesCount} histórias!`);
         loadData(); // reload cards
       } else {
-        alert(res?.message || "O Agente QA não encontrou cenários para enriquecer.");
+        toast.success(res?.message || "O Agente QA não encontrou cenários para enriquecer.");
       }
     } catch (err) {
-      alert('Erro ao rodar Agente QA: ' + err.message);
+      toast.error('Erro ao rodar Agente QA: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -385,7 +386,7 @@ export function ProjectView() {
   const handleRunSprint = async () => {
     const sprintCards = cards.filter(c => c.column_id === 'col-sprint');
     if (sprintCards.length === 0) {
-      alert("Nenhuma história na coluna 'Pacote Sprint'. Arraste algumas histórias para lá primeiro.");
+      toast.error("Nenhuma história na coluna 'Pacote Sprint'. Arraste algumas histórias para lá primeiro.");
       return;
     }
     
@@ -394,11 +395,11 @@ export function ProjectView() {
       const cardIds = sprintCards.map(c => c.id);
       const res = await apiClient.sprints.run(projectId, cardIds);
       if (res.success) {
-        alert(`Sprint criada com sucesso: ${res.sprint}. ${res.updatedCount} histórias atualizadas!`);
+        toast.success(`Sprint criada com sucesso: ${res.sprint}. ${res.updatedCount} histórias atualizadas!`);
         loadData(); // reload
       }
     } catch (err) {
-      alert('Erro ao rodar sprint: ' + err.message);
+      toast.error('Erro ao rodar sprint: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -411,14 +412,14 @@ export function ProjectView() {
     try {
       const res = await apiClient.ai.refineDemand(projectId, demandText, showAddModal.type);
       if (res.isValid === false) {
-        alert("Feedback da IA:\n\n" + res.feedback);
+        toast.success("Feedback da IA:\n\n" + res.feedback);
       } else if (res.refinedData) {
         setRefinedDemandData(JSON.stringify(res.refinedData));
       } else {
-        alert("IA não retornou um formato válido.");
+        toast.success("IA não retornou um formato válido.");
       }
     } catch (err) {
-      alert("Erro ao refinar: " + err.message);
+      toast.error("Erro ao refinar: " + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -437,7 +438,7 @@ export function ProjectView() {
         setFeatures([...features, f]);
       } else {
         if (!selectedFeatureForCard && features.length > 0) {
-          alert("Selecione uma Feature Pai no dropdown de Histórias antes de adicionar!");
+          toast.error("Selecione uma Feature Pai no dropdown de Histórias antes de adicionar!");
           return;
         }
         const c = await apiClient.cards.create({
@@ -450,7 +451,7 @@ export function ProjectView() {
       setShowAddModal({ open: false, type: 'feature' });
       setDemandText('');
     } catch (err) {
-      alert("Erro ao criar demanda: " + err.message);
+      toast.error("Erro ao criar demanda: " + err.message);
     }
   };
 
@@ -459,11 +460,11 @@ export function ProjectView() {
     try {
       const res = await apiClient.github.exportSpec(cardId);
       if (res && res.url) {
-        alert('Exportado com sucesso para o GitHub!');
+        toast.success('Exportado com sucesso para o GitHub!');
         window.open(res.url, '_blank');
       }
     } catch (err) {
-      alert('Erro ao exportar: ' + err.message);
+      toast.error('Erro ao exportar: ' + err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -487,7 +488,7 @@ export function ProjectView() {
         }
       }
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
       // rollback se quiser
     }
   };
@@ -500,7 +501,7 @@ export function ProjectView() {
     const card = cards.find(c => c.id === draggableId);
     if (card && card.tags && card.tags.some(t => t.startsWith('Sprint '))) {
       if (['col-backlog', 'col-spec', 'col-sprint'].includes(newColId)) {
-        alert("Histórias de Sprints já executadas não podem retroceder no fluxo. Crie uma nova história caso necessite revisões pesadas.");
+        toast.error("Histórias de Sprints já executadas não podem retroceder no fluxo. Crie uma nova história caso necessite revisões pesadas.");
         return;
       }
     }
@@ -549,7 +550,7 @@ export function ProjectView() {
       }
 
     } 
-    catch (err) { setCards(prevCards); alert('Erro ao mover a história: ' + err.message); }
+    catch (err) { setCards(prevCards); toast.error('Erro ao mover a história: ' + err.message); }
   };
 
   // AI ACTIONS
@@ -559,7 +560,7 @@ export function ProjectView() {
       const roadmap = await apiClient.ai.generateRoadmap(projectId);
       setProject({ ...project, roadmap_content: roadmap });
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingRoadmap(false);
     }
@@ -580,7 +581,7 @@ export function ProjectView() {
         return prev.map(f => f.id === featureId ? updatedFeature : f);
       });
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -601,7 +602,7 @@ export function ProjectView() {
         return prev.map(card => card.id === cardId ? updatedCard : card);
       });
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -647,13 +648,13 @@ export function ProjectView() {
             }
           }
           loadData();
-          alert(`Análise concluída! ${newCount} histórias novas e ${updatedCount} histórias refinadas.`);
+          toast.success(`Análise concluída! ${newCount} histórias novas e ${updatedCount} histórias refinadas.`);
         }
       } catch (e) {
         console.error("Failed to auto-extract stories:", e);
       }
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -686,7 +687,7 @@ export function ProjectView() {
         return prev.map(c => c.id === cardId ? updatedCard : c);
       });
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setGeneratingItem(null);
     }
@@ -869,7 +870,7 @@ export function ProjectView() {
                 try {
                   const res = await apiClient.ai.generateArchitectureDoc(projectId);
                   setProject({ ...project, main_architecture_content: res.content });
-                } catch(e) { alert(e.message); }
+                } catch(e) { toast.error(e.message); }
                 setGeneratingItem(null);
               }} disabled={generatingItem === 'arch'}>
                 {generatingItem === 'arch' ? <Loader2 className="animate-spin" /> : <><Sparkles size={16}/> Gerar / Atualizar Arquitetura</>}
@@ -888,7 +889,7 @@ export function ProjectView() {
                 try {
                   const res = await apiClient.ai.generateSecurityDoc(projectId);
                   setProject({ ...project, main_security_content: res.content });
-                } catch(e) { alert(e.message); }
+                } catch(e) { toast.error(e.message); }
                 setGeneratingItem(null);
               }} disabled={generatingItem === 'sec'}>
                 {generatingItem === 'sec' ? <Loader2 className="animate-spin" /> : <><Sparkles size={16}/> Gerar / Atualizar Segurança</>}
@@ -1439,7 +1440,7 @@ export function ProjectView() {
                     const allText = results.join('\n\n');
                     setImportContent(prev => prev ? prev + '\n\n' + allText : allText);
                   } catch (err) {
-                    alert('Erro ao extrair documentos: ' + err.message);
+                    toast.error('Erro ao extrair documentos: ' + err.message);
                   } finally {
                     setIsUploadingContext(false);
                     e.target.value = null;
@@ -1571,7 +1572,7 @@ export function ProjectView() {
                               if (c.spec_content) megaMd += `## Especificação Técnica\n${c.spec_content}\n\n`;
                             });
                             navigator.clipboard.writeText(megaMd);
-                            alert('Pacote da Sprint copiado para a área de transferência! Cole no Claude Code.');
+                            toast.success('Pacote da Sprint copiado para a área de transferência! Cole no Claude Code.');
                           }}>
                             Copiar para Claude
                           </button>
@@ -1640,7 +1641,7 @@ export function ProjectView() {
                         if (showAddModal.type === 'feature') {
                           const f = await apiClient.features.create({ project_id: projectId, title: story.title, description: story.businessNarrative });
                           setFeatures([...features, f]);
-                          alert("Feature criada com sucesso!");
+                          toast.success("Feature criada com sucesso!");
                         } else {
                           const c = await apiClient.cards.create({
                             feature_id: selectedFeatureForCard || features[0]?.id,
@@ -1649,13 +1650,13 @@ export function ProjectView() {
                             spec_content: JSON.stringify({ refinedStories: [story] }, null, 2)
                           });
                           setCards([...cards, c]);
-                          alert("História refinada e criada com sucesso!");
+                          toast.success("História refinada e criada com sucesso!");
                         }
                         setShowAddModal({ open: false, type: 'feature' });
                         setDemandText('');
                         setRefinedDemandData(null);
                       } catch (err) {
-                        alert("Erro ao criar demanda refinada: " + err.message);
+                        toast.error("Erro ao criar demanda refinada: " + err.message);
                       }
                     }}
                   />

@@ -5,10 +5,13 @@ import { AuthPage } from './pages/AuthPage'
 import { Dashboard } from './pages/Dashboard'
 import { ProjectView } from './pages/ProjectView'
 
+import { Toaster } from 'react-hot-toast'
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Toaster position="bottom-right" />
         <Routes>
           <Route path="/login" element={<AuthPage />} />
           <Route path="/" element={<Dashboard />} />
